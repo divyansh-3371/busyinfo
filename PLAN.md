@@ -101,9 +101,13 @@ role == approver → `report_rules.decide()` checks `report.status == submitted`
 ## 2. Task breakdown (ordered checklist)
 
 ### Day 1 — foundations + core CRUD + lifecycle
-- [ ] Init git repo, initial commit (empty FastAPI app + empty Vite/React app scaffolds)
-- [ ] Supabase project created; SQLAlchemy models for all 7 tables; first Alembic migration
-- [ ] Commit: schema + migration
+- [x] Init git repo, initial commit (empty FastAPI app + empty Vite/React app scaffolds)
+- [x] SQLAlchemy models for all 7 tables; first Alembic migration — verified against a
+      local Postgres 16 container (upgrade/downgrade/re-upgrade all succeed). Supabase
+      project creation itself is deferred to the deploy phase (section 5) since nothing
+      before deployment actually needs the hosted DB — local Postgres is enough to build
+      and test against.
+- [x] Commit: schema + migration
 - [ ] `core/security.py`: password hashing, JWT issue/verify; `api/deps.py`: `get_current_user`
 - [ ] `POST /auth/login` (backend) + Login page + `AuthContext` (frontend) storing the JWT
       and attaching it to every request
