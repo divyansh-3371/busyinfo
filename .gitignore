@@ -5,7 +5,11 @@ build/
 target/
 __pycache__/
 venv/
+.venv/
+*.egg-info/
+.pytest_cache/
 .env
+
 .env.local
 .env.*.local
 *.log
