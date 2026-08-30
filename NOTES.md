@@ -46,6 +46,10 @@ submission. Updated as the build happens, not reconstructed from memory at the e
 
 - No rate limiting on login.
 - No automated frontend test suite — manual QA only (see PLAN.md testing strategy).
+- Passlib dropped in favor of calling `bcrypt` directly: passlib 1.7.4 throws
+  `(trapped) error reading bcrypt version` against bcrypt>=4.1 (a known, unfixed
+  incompatibility — passlib is effectively unmaintained). Same security properties,
+  one fewer dependency, no warning noise.
 
 ## Local dev environment quirks
 
@@ -68,3 +72,8 @@ submission. Updated as the build happens, not reconstructed from memory at the e
   via env vars before the final deploy.
 - Re-verify CORS_ORIGINS is set to the real deployed frontend URL (not just localhost)
   before considering deployment done.
+- **Login/dashboard flow has not been clicked through in an actual browser** — no
+  browser automation tool was available this session. Verified instead via FastAPI's
+  TestClient and real HTTP calls (curl) against both dev servers, including a live
+  CORS preflight check. Do a manual click-through early in Day 2 to catch anything a
+  pure-HTTP check can't see (rendering issues, console errors, etc.).

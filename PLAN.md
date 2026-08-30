@@ -108,10 +108,14 @@ role == approver → `report_rules.decide()` checks `report.status == submitted`
       before deployment actually needs the hosted DB — local Postgres is enough to build
       and test against.
 - [x] Commit: schema + migration
-- [ ] `core/security.py`: password hashing, JWT issue/verify; `api/deps.py`: `get_current_user`
-- [ ] `POST /auth/login` (backend) + Login page + `AuthContext` (frontend) storing the JWT
-      and attaching it to every request
-- [ ] Commit: auth working end-to-end against a manually-inserted test user
+- [x] `core/security.py`: password hashing (bcrypt directly, not passlib - see NOTES.md),
+      JWT issue/verify; `api/deps.py`: `get_current_user`/`require_approver`
+- [x] `POST /auth/login` + `GET /auth/me` (backend) + Login page + `AuthContext`
+      (frontend) storing the JWT and attaching it to every request
+- [x] Commit: auth working end-to-end against a manually-inserted test user — verified
+      via TestClient and over real HTTP (uvicorn + Vite dev servers, live CORS
+      preflight). Not yet clicked through in an actual browser (no browser tooling
+      available this session) — flagged in NOTES.md as a manual check still owed.
 - [ ] `seed.py`: users (2+ employees, 2+ approvers), enough reports/lines across statuses
       and ~8 weeks of history to make dashboard/chart non-trivial
 - [ ] Commit: seed script
