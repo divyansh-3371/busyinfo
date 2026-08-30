@@ -210,7 +210,9 @@ def main():
                     "Missing an itemized receipt for the meal - please attach and resubmit.",
                     days_ago(10),
                 ),
-                (ReportStatus.rejected, ReportStatus.draft, bob, None, days_ago(10)),
+                # Automatic follow-on of the same reject action (see
+                # services/report_rules.decide) - same actor, no separate reason.
+                (ReportStatus.rejected, ReportStatus.draft, dave, None, days_ago(10)),
             ],
             created_at=days_ago(12),
         )

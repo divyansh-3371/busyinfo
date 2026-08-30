@@ -1,0 +1,204 @@
+from datetime import date
+
+import pytest
+
+from app.models.enums import ExpenseCategory, ReportStatus, Role
+from app.models.line import ExpenseLine
+from app.models.report import ExpenseReport
+from app.services import report_rules
+from app.services.report_rules import DomainError, SelfApprovalError
+
+
+def make_report(db, owner, status=ReportStatus.draft) -> ExpenseReport:
+    report = ExpenseReport(
+        owner_id=owner.id,
+        title="Test report",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 2),
+        status=status,
+    )
+    db.add(report)
+    db.flush()
+    return report
+
+
+# --- submit ---
+
+
+def test_submit_by_owner_succeeds(db, make_user):
+    owner = make_user()
+    report = make_report(db, owner)
+    report_rules.submit(db, report, owner)
+    assert report.status == ReportStatus.submitted
+
+
+def test_submit_by_non_owner_rejected(db, make_user):
+    owner = make_user()
+    other = make_user()
+    report = make_report(db, owner)
+    with pytest.raises(DomainError):
+        report_rules.submit(db, report, other)
+    assert report.status == ReportStatus.draft
+
+
+def test_submit_non_draft_rejected(db, make_user):
+    owner = make_user()
+    report = make_report(db, owner, status=ReportStatus.submitted)
+    with pytest.raises(DomainError):
+        report_rules.submit(db, report, owner)
+
+
+# --- decide ---
+
+
+def test_approve_by_non_owning_approver_succeeds(db, make_user):
+    owner = make_user()
+    approver = make_user(role=Role.approver)
+    report = make_report(db, owner, status=ReportStatus.submitted)
+    report_rules.decide(db, report, approver, "approved")
+    assert report.status == ReportStatus.approved
+
+
+def test_approve_by_employee_rejected(db, make_user):
+    owner = make_user()
+    employee = make_user()
+    report = make_report(db, owner, status=ReportStatus.submitted)
+    with pytest.raises(DomainError):
+        report_rules.decide(db, report, employee, "approved")
+
+
+def test_self_approval_blocked_even_though_actor_is_an_approver(db, make_user):
+    """The specific rule the brief spells out: an approver can never decide on their
+    own report, even though they hold the role."""
+    owner_approver = make_user(role=Role.approver)
+    report = make_report(db, owner_approver, status=ReportStatus.submitted)
+    with pytest.raises(SelfApprovalError):
+        report_rules.decide(db, report, owner_approver, "approved")
+    assert report.status == ReportStatus.submitted  # unchanged
+
+
+def test_reject_requires_a_reason(db, make_user):
+    owner = make_user()
+    approver = make_user(role=Role.approver)
+    report = make_report(db, owner, status=ReportStatus.submitted)
+    with pytest.raises(DomainError):
+        report_rules.decide(db, report, approver, "rejected", reason=None)
+    with pytest.raises(DomainError):
+        report_rules.decide(db, report, approver, "rejected", reason="   ")
+
+
+def test_reject_returns_report_to_draft_and_logs_both_transitions(db, make_user):
+    owner = make_user()
+    approver = make_user(role=Role.approver)
+    report = make_report(db, owner, status=ReportStatus.submitted)
+    report_rules.decide(db, report, approver, "rejected", reason="Missing receipt")
+    assert report.status == ReportStatus.draft
+
+    events = sorted(report.status_events, key=lambda e: e.id)
+    assert len(events) == 2
+    assert (events[0].from_status, events[0].to_status) == (
+        ReportStatus.submitted,
+        ReportStatus.rejected,
+    )
+    assert events[0].reason == "Missing receipt"
+    assert (events[1].from_status, events[1].to_status) == (
+        ReportStatus.rejected,
+        ReportStatus.draft,
+    )
+
+
+def test_decide_on_non_submitted_report_rejected(db, make_user):
+    owner = make_user()
+    approver = make_user(role=Role.approver)
+    report = make_report(db, owner, status=ReportStatus.draft)
+    with pytest.raises(DomainError):
+        report_rules.decide(db, report, approver, "approved")
+
+
+# --- mark_paid ---
+
+
+def test_mark_paid_by_non_owning_approver_succeeds(db, make_user):
+    owner = make_user()
+    approver = make_user(role=Role.approver)
+    report = make_report(db, owner, status=ReportStatus.approved)
+    report_rules.mark_paid(db, report, approver)
+    assert report.status == ReportStatus.paid
+
+
+def test_mark_paid_self_owned_blocked(db, make_user):
+    owner_approver = make_user(role=Role.approver)
+    report = make_report(db, owner_approver, status=ReportStatus.approved)
+    with pytest.raises(SelfApprovalError):
+        report_rules.mark_paid(db, report, owner_approver)
+
+
+def test_mark_paid_non_approved_rejected(db, make_user):
+    owner = make_user()
+    approver = make_user(role=Role.approver)
+    report = make_report(db, owner, status=ReportStatus.submitted)
+    with pytest.raises(DomainError):
+        report_rules.mark_paid(db, report, approver)
+
+
+# --- recalculate_total ---
+
+
+def test_recalculate_total_sums_lines(db, make_user):
+    owner = make_user()
+    report = make_report(db, owner)
+    db.add_all(
+        [
+            ExpenseLine(
+                report_id=report.id,
+                date=date(2026, 1, 1),
+                amount_cents=1000,
+                category=ExpenseCategory.travel,
+                description="a",
+            ),
+            ExpenseLine(
+                report_id=report.id,
+                date=date(2026, 1, 1),
+                amount_cents=2500,
+                category=ExpenseCategory.meals,
+                description="b",
+            ),
+        ]
+    )
+    db.flush()
+    report_rules.recalculate_total(report, db)
+    assert report.total_cents == 3500
+
+
+def test_recalculate_total_zero_lines(db, make_user):
+    owner = make_user()
+    report = make_report(db, owner)
+    report_rules.recalculate_total(report, db)
+    assert report.total_cents == 0
+
+
+# --- archive/restore ---
+
+
+def test_archive_then_restore(db, make_user):
+    owner = make_user()
+    report = make_report(db, owner)
+    report_rules.archive(report)
+    assert report.archived_at is not None
+    report_rules.restore(report)
+    assert report.archived_at is None
+
+
+def test_double_archive_rejected(db, make_user):
+    owner = make_user()
+    report = make_report(db, owner)
+    report_rules.archive(report)
+    with pytest.raises(DomainError):
+        report_rules.archive(report)
+
+
+def test_restore_non_archived_rejected(db, make_user):
+    owner = make_user()
+    report = make_report(db, owner)
+    with pytest.raises(DomainError):
+        report_rules.restore(report)
