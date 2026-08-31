@@ -68,7 +68,7 @@ Mark each honestly. Partial is fine — say what is partial.
 this to reflect your own priorities before submitting:>
 
 - A real automated frontend test suite (Playwright or similar) - QA so far has been
-  backend `pytest` (82 tests) plus manual/curl-based verification of the deployed API;
+  backend `pytest` (83 tests) plus manual/curl-based verification of the deployed API;
   the frontend has no automated coverage at all.
 - Rate limiting on `/auth/login`.
 - Revisit the JWT-in-response-body-over-httpOnly-cookie trade-off if this ever needed
