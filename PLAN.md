@@ -226,10 +226,11 @@ tested. Frontend: alerts page + nav badge count for approvers.
       result shape, total calculation, stale-alert window math, CSV row generation, authz
       guard rejections
 - [ ] Commit: tests
-- [ ] Fill `docs/architecture.md`, `docs/schema.md`, `docs/plan.md`, `docs/decisions.md`
-      (5 decisions, 1 reversed), `docs/ai-prompts.md` — from running notes kept during the
-      build, not reconstructed from memory
-- [ ] Commit: docs
+- [x] Fill `docs/architecture.md`, `docs/schema.md`, `docs/plan.md`, `docs/decisions.md`
+      (6 decisions, 1 reversed), `docs/ai-prompts.md` — written from the actual
+      commit history, NOTES.md, and this conversation's real prompt sequence, not
+      reconstructed from memory afterward
+- [x] Commit: docs
 - [ ] Deploy: Supabase prod DB → run Alembic migrations → seed prod DB → Render env vars
       (`DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGINS`, `STALE_ALERT_DAYS`,
       `STALE_ALERT_SNOOZE_DAYS`) → Render deploy → Vercel env var (`VITE_API_BASE_URL`) →
