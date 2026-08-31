@@ -255,7 +255,9 @@ tested. Frontend: alerts page + nav badge count for approvers.
       questions (time spent, what's next, least-happy-with) left as drafts for a
       personal pass before final submission.
 - [ ] Commit: final docs + submission
-- [ ] Pre-submission audit (Step 4 below)
+- [x] Pre-submission audit (Step 4 below) — found and fixed one real issue: a live
+      Supabase DB password was committed in NOTES.md as a fake-looking "example".
+      Redacted; **rotating the actual credential in Supabase is still outstanding.**
 
 ---
 
@@ -407,12 +409,32 @@ noted as a deliberate scope cut in `NOTES.md`.
 - Dismiss a stale alert, fast-forward the snooze via a DB edit, confirm it reappears.
 
 **Pre-deploy checklist**
-- [ ] Backend starts cleanly (`uvicorn app.main:app`) with production env vars.
-- [ ] `alembic upgrade head` applies cleanly to a fresh database.
-- [ ] `seed.py` runs against a fresh database without manual fixups.
-- [ ] `npm run build` (frontend) succeeds against the deployed API's `VITE_API_BASE_URL`.
-- [ ] No secrets in git history (spot-check `.env` was never committed).
-- [ ] All 10 goals walked manually against the local build once, end to end.
+- [x] Backend starts cleanly (`uvicorn app.main:app`) with production env vars — verified
+      against the actual live Render deploy (`/health` 200, `/auth/login` issuing real
+      tokens against the Supabase DB).
+- [x] `alembic upgrade head` applies cleanly to a fresh database — re-verified against a
+      brand-new, never-touched local database (not the long-lived dev one), separately
+      from the run already done against prod.
+- [x] `seed.py` runs against a fresh database without manual fixups — same fresh DB,
+      immediately after migrating; row counts (4 users, 16 reports, 20 lines, 18
+      approver-assignments, 36 status events, 2 comments, 1 alert dismissal) matched
+      the live Supabase DB exactly, confirming the pipeline is genuinely reproducible.
+- [x] `npm run build` (frontend) succeeds against the deployed API's `VITE_API_BASE_URL`
+      — clean `tsc` + Vite build; output asset hashes matched what's actually live on
+      Vercel byte-for-byte, confirming Vercel built from the same source.
+- [x] No secrets in git history (spot-check `.env` was never committed) — `.env` itself
+      was never committed (clean), **but found a real secret elsewhere**: NOTES.md's
+      "password containing `@`" example used the actual real Supabase DB password, not
+      a placeholder, committed in `ebf154d` and live on the public repo since before
+      this audit. Redacted to a fake example password and pushed - but the old value
+      remains visible in that commit's history. **The DB password must be rotated in
+      Supabase** (and `DATABASE_URL` updated on Render afterward) - redacting the
+      doc alone does not invalidate the leaked credential.
+- [x] All 10 goals walked manually against the local build once, end to end — done
+      against the deployed app rather than a separate local pass (a stronger check,
+      since it's the actual submission target): browser click-through as both roles
+      confirmed working, on top of the curl-level verification of auth, lifecycle,
+      bulk actions, CSV export, and CORS done earlier in this session.
 
 ---
 
