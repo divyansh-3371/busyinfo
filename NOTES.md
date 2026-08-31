@@ -83,7 +83,7 @@ submission. Updated as the build happens, not reconstructed from memory at the e
 ## Deployment gotchas hit and fixed
 
 - **Supabase DB password containing `@`**: a connection URL like
-  `postgresql+psycopg2://postgres:Admin@ban16busyinfo@db.xxx.supabase.co:5432/postgres`
+  `postgresql+psycopg2://postgres:MyP@ssword@db.xxx.supabase.co:5432/postgres`
   misparses — the URL parser treats the *last* `@` as the credentials/host delimiter,
   so part of the password gets read as the start of the hostname. Fix: percent-encode
   special characters in the password (`@` → `%40`) before putting it in `DATABASE_URL`.
