@@ -30,6 +30,7 @@ export default function ReportsList() {
   const [bulkResults, setBulkResults] = useState<BulkDecideResultItem[] | null>(null)
   const [bulkError, setBulkError] = useState<string | null>(null)
   const [bulkBusy, setBulkBusy] = useState(false)
+  const [csvBusy, setCsvBusy] = useState(false)
 
   function reload() {
     setError(null)
@@ -52,6 +53,8 @@ export default function ReportsList() {
 
   useEffect(() => {
     setData(null)
+    setBulkResults(null)
+    setBulkError(null)
     reload()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, status, includeArchived, assignedToMe, sort, sortDir, page])
@@ -88,13 +91,15 @@ export default function ReportsList() {
         {user?.role === "approver" && (
           <button
             className="btn-ghost"
-            onClick={() =>
-              downloadExportDueCsv().catch((err) =>
-                setBulkError(err instanceof ApiError ? err.message : "Export failed."),
-              )
-            }
+            disabled={csvBusy}
+            onClick={() => {
+              setCsvBusy(true)
+              downloadExportDueCsv()
+                .catch((err) => setBulkError(err instanceof ApiError ? err.message : "Export failed."))
+                .finally(() => setCsvBusy(false))
+            }}
           >
-            Export reimbursements due (CSV)
+            {csvBusy ? "Exporting..." : "Export reimbursements due (CSV)"}
           </button>
         )}
       </div>
@@ -124,14 +129,23 @@ export default function ReportsList() {
         </select>
         <select
           value={sort}
-          onChange={(e) => setSort(e.target.value as typeof sort)}
+          onChange={(e) => {
+            setPage(1)
+            setSort(e.target.value as typeof sort)
+          }}
         >
           <option value="created_at">Sort: created</option>
           <option value="submitted_at">Sort: submitted date</option>
           <option value="status">Sort: status</option>
           <option value="total_cents">Sort: total amount</option>
         </select>
-        <select value={sortDir} onChange={(e) => setSortDir(e.target.value as "asc" | "desc")}>
+        <select
+          value={sortDir}
+          onChange={(e) => {
+            setPage(1)
+            setSortDir(e.target.value as "asc" | "desc")
+          }}
+        >
           <option value="desc">Descending</option>
           <option value="asc">Ascending</option>
         </select>
@@ -168,12 +182,14 @@ export default function ReportsList() {
 
       {user?.role === "approver" && selectedIds.length > 0 && (
         <div className="action-bar">
-          <span>{selectedIds.length} selected</span>
+          <span>
+            {selectedIds.length} report{selectedIds.length !== 1 ? "s" : ""} selected
+          </span>
           <button className="btn-primary" disabled={bulkBusy} onClick={() => handleBulk("approved")}>
-            Bulk approve
+            {selectedIds.length === 1 ? "Approve" : "Bulk approve"}
           </button>
           <button className="btn-danger" disabled={bulkBusy} onClick={() => handleBulk("rejected")}>
-            Bulk reject
+            {selectedIds.length === 1 ? "Reject" : "Bulk reject"}
           </button>
         </div>
       )}

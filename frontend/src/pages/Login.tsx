@@ -14,6 +14,9 @@ export default function Login() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    // The button's `disabled` only blocks clicks - pressing Enter while a submit is
+    // already in flight still fires this handler, so guard it explicitly here.
+    if (submitting) return
     setError(null)
     setSubmitting(true)
     try {

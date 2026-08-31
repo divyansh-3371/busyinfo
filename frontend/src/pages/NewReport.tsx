@@ -15,6 +15,7 @@ export default function NewReport() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (submitting) return
     setError(null)
     setSubmitting(true)
     try {

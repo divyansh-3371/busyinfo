@@ -57,14 +57,20 @@ export default function ReportDetail() {
 
   useEffect(reload, [reportId])
 
-  async function runAction<T>(action: () => Promise<T>) {
+  async function runAction<T>(action: () => Promise<T>): Promise<boolean> {
+    // Every mutating action on this page goes through here, so guarding re-entrancy
+    // once here covers all of them - including forms submitted via Enter, which
+    // fire regardless of a button's `disabled` state.
+    if (busy) return false
     setActionError(null)
     setBusy(true)
     try {
       await action()
       reload()
+      return true
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Something went wrong.")
+      return false
     } finally {
       setBusy(false)
     }
@@ -73,7 +79,7 @@ export default function ReportDetail() {
   async function handleAddLine(e: FormEvent) {
     e.preventDefault()
     const cents = Math.round(parseFloat(lineAmount) * 100)
-    await runAction(() =>
+    const ok = await runAction(() =>
       addLine(reportId, {
         date: lineDate,
         category: lineCategory,
@@ -81,16 +87,22 @@ export default function ReportDetail() {
         description: lineDescription,
       }),
     )
-    setLineDate("")
-    setLineAmount("")
-    setLineDescription("")
+    // Only clear the form on success - a rejected line (bad amount, date, etc.)
+    // should leave what was typed in place so it isn't silently lost.
+    if (ok) {
+      setLineDate("")
+      setLineAmount("")
+      setLineDescription("")
+    }
   }
 
   async function handleAddComment(e: FormEvent) {
     e.preventDefault()
     const body = commentBody
     setCommentBody("")
-    await runAction(() => addComment(reportId, body))
+    const ok = await runAction(() => addComment(reportId, body))
+    // Cleared optimistically above for a snappy feel; restore it if it actually failed.
+    if (!ok) setCommentBody(body)
   }
 
   if (error) return <Layout><p className="form-error">{error}</p></Layout>
@@ -104,6 +116,11 @@ export default function ReportDetail() {
   const canMarkPaid = isApprover && !isOwner && report.status === "approved"
   const canArchive = isOwner && !report.archived_at
   const canRestore = isOwner && !!report.archived_at
+
+  const currentApproverIds = new Set(report.approvers.map((a) => a.id))
+  const approverSelectionChanged =
+    currentApproverIds.size !== selectedApproverIds.length ||
+    selectedApproverIds.some((id) => !currentApproverIds.has(id))
 
   const timeline = [
     ...report.status_events.map((e) => ({
@@ -164,7 +181,7 @@ export default function ReportDetail() {
             </div>
             <button
               className="btn-primary btn-sm"
-              disabled={busy}
+              disabled={busy || !approverSelectionChanged}
               onClick={() => runAction(() => setApprovers(reportId, selectedApproverIds))}
             >
               Save assignments
