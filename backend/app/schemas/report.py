@@ -153,6 +153,9 @@ class BulkDecideRequest(BaseModel):
 class BulkDecideResultItem(BaseModel):
     report_id: int
     ok: bool
+    self_owned: bool = False  # True specifically when this one failed because the
+    # acting approver owns it - goal 7 requires this be distinguishable from other
+    # failures, not just present in the reason text.
     reason: str | None = None  # populated only when ok is False
 
 

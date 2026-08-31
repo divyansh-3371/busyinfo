@@ -1,5 +1,8 @@
-import { apiFetch } from "./client"
+import { apiFetch, ApiError } from "./client"
+import { getToken } from "./authToken"
 import type { ExpenseCategory, ExpenseLine, ReportDetail, ReportListResponse, User } from "../types"
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL as string
 
 export interface ReportQuery {
   q?: string
@@ -92,4 +95,43 @@ export function decideReport(
 
 export function payReport(id: number): Promise<ReportDetail> {
   return apiFetch<ReportDetail>(`/reports/${id}/pay`, { method: "POST" })
+}
+
+export interface BulkDecideResultItem {
+  report_id: number
+  ok: boolean
+  self_owned: boolean
+  reason: string | null
+}
+
+export function bulkDecide(
+  reportIds: number[],
+  decision: "approved" | "rejected",
+  reason?: string,
+): Promise<{ results: BulkDecideResultItem[] }> {
+  return apiFetch<{ results: BulkDecideResultItem[] }>("/reports/bulk-decide", {
+    method: "POST",
+    body: { report_ids: reportIds, decision, reason },
+  })
+}
+
+/** CSV download needs the Authorization header, which a plain <a href> can't send -
+ * fetch as a blob and trigger the browser's save dialog via a synthetic click. */
+export async function downloadExportDueCsv(): Promise<void> {
+  const token = getToken()
+  const response = await fetch(`${API_BASE}/reports/export-due`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) {
+    throw new ApiError(response.status, "Failed to export CSV.")
+  }
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = "reimbursements_due.csv"
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }

@@ -1,6 +1,9 @@
+import csv
+import io
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_visible_report, require_approver
@@ -89,6 +92,44 @@ def list_reports(
 def list_approvers(db: Session = Depends(get_db), _: User = Depends(require_approver)) -> list[User]:
     """All users with the approver role - used to populate the assignment picker."""
     return db.query(User).filter(User.role == Role.approver).order_by(User.name).all()
+
+
+@router.get("/export-due")
+def export_due(db: Session = Depends(get_db), _: User = Depends(require_approver)) -> StreamingResponse:
+    """CSV of every Approved-but-unpaid report - the reimbursements due (goal 7).
+    Registered before the dynamic GET /{report_id} route (same reason as /approvers
+    above): a literal path segment must be matched before a path parameter would
+    otherwise shadow it."""
+    reports = (
+        db.query(ExpenseReport)
+        .filter(ExpenseReport.status == ReportStatus.approved)
+        .order_by(ExpenseReport.submitted_at)
+        .all()
+    )
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(
+        ["report_id", "title", "owner_name", "owner_email", "total_usd", "start_date", "end_date", "submitted_at"]
+    )
+    for r in reports:
+        writer.writerow(
+            [
+                r.id,
+                r.title,
+                r.owner.name,
+                r.owner.email,
+                f"{r.total_cents / 100:.2f}",
+                r.start_date.isoformat(),
+                r.end_date.isoformat(),
+                r.submitted_at.isoformat() if r.submitted_at else "",
+            ]
+        )
+    buffer.seek(0)
+    return StreamingResponse(
+        iter([buffer.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=reimbursements_due.csv"},
+    )
 
 
 @router.post("", response_model=ReportDetail, status_code=status.HTTP_201_CREATED)

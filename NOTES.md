@@ -24,6 +24,13 @@ submission. Updated as the build happens, not reconstructed from memory at the e
   out to be the wrong call.
 - **Dismissing an already-dismissed, still-snoozed alert** resets `snoozed_until`
   forward (upsert on `(report_id, approver_id)`), rather than being a no-op.
+- **Bulk reject uses one shared reason** for every report in the batch (a single
+  `reason` field on the bulk-decide request), rather than a per-report reason. Bulk
+  approve needs no reason at all, so this only affects bulk-reject, which seems like
+  a reasonable simplification for a batch action.
+- **Approver assignment isn't owner-restricted**: any approver can assign/unassign
+  approvers on any report they can see (not just the report's owner), since it's a
+  queue-management action among approvers, not something tied to report ownership.
 
 ## Architecture decisions worth remembering (full write-up goes in docs/decisions.md)
 

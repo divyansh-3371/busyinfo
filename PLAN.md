@@ -161,10 +161,19 @@ browser tool available this session — see NOTES.md). 28 backend tests passing.
       status filter, zero-hit filter, pagination incl. out-of-range page, sort by
       total amount, invalid sort field rejected with 422, owner/approver filters,
       assigned-to-me, approver-id validation, role-gated assignment). 39 tests total.
-- [ ] `POST /reports/bulk-decide`: per-report check, structured result distinguishing
-      "rejected — you own this report" from other outcomes; bulk-select UI + result summary
-- [ ] `GET /reports/export-due` CSV export of approved-but-unpaid reports
-- [ ] Commit: bulk actions + CSV export
+- [x] `POST /reports/bulk-decide`: per-report check, structured result distinguishing
+      "rejected — you own this report" from other outcomes (a dedicated `self_owned`
+      boolean, not string-matching); bulk-select UI + result summary. A single shared
+      `reason` applies to every rejection in one batch call — noted as a simplifying
+      assumption in NOTES.md.
+- [x] `GET /reports/export-due` CSV export of approved-but-unpaid reports — registered
+      before the dynamic `/{report_id}` route (same reason `/approvers` is), header-only
+      CSV for the zero-rows case, downloaded from the frontend via a fetched blob since
+      the endpoint needs an Authorization header a plain link can't send
+- [x] Commit: bulk actions + CSV export — 7 new tests (mixed-outcome batch incl. a
+      nonexistent id, self-owned labeled distinctly from other failures, empty
+      selection rejected, role-gated, CSV header-only when empty, role-gated export).
+      46 tests total.
 - [ ] Comments endpoint (append-only) + timeline view merging `StatusEvent`s + `Comment`s,
       sorted
 - [ ] Commit: comments + timeline
