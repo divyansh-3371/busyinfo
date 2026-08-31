@@ -197,10 +197,20 @@ browser tool available this session — see NOTES.md). 28 backend tests passing.
 tested. Frontend: alerts page + nav badge count for approvers.
 
 ### Day 2 afternoon — dashboard, edge cases, tests, docs, deploy
-- [ ] Dashboard aggregate endpoint: awaiting-approval count, total due, approved-this-week,
-      paid-this-week, status breakdown, category breakdown, 8-week paid-per-week series
-- [ ] Dashboard page with Recharts bar chart
-- [ ] Commit: dashboard
+- [x] Dashboard aggregate endpoint: awaiting-approval count, total due, approved-this-week,
+      paid-this-week, status breakdown, category breakdown, 8-week paid-per-week series.
+      Scoped like everything else (employee sees own numbers, approver sees
+      company-wide) — the dashboard wasn't singled out as an exception to that rule.
+      "This week"/weekly buckets are trailing 7-day windows from `now`, not calendar
+      weeks, documented in the module.
+- [x] Dashboard page with Recharts bar chart, stat tiles, and status/category breakdowns
+- [x] Commit: dashboard — 6 new tests (awaiting/total-due, zero-count statuses still
+      present, category sums, this-week event counts, 8-bucket oldest-first series,
+      employee-scoped-to-own). 65 tests total. Also nudged seed.py's weekly-paid
+      timestamps 3 days off the exact bucket boundary after noticing the boundary-exact
+      seed offsets could drift into the adjacent week purely from the gap between
+      seeding and viewing — confirmed the dashboard logic itself was correct via the
+      fixed-`now` unit tests before concluding it was a seed-data artifact, not a bug.
 - [ ] Edge-case pass (see section 3) — implement or explicitly descope each one in `NOTES.md`
 - [ ] `pytest` unit/API tests: lifecycle transitions, self-approval block, bulk per-report
       result shape, total calculation, stale-alert window math, CSV row generation, authz

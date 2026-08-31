@@ -265,7 +265,11 @@ def main():
         for week in range(1, 9):
             owner = owners[week % 2]
             approver = approver_cycle[week % 2]
-            paid_at = days_ago(week * 7)
+            # 3-day offset from the exact week boundary: the dashboard's weekly
+            # buckets are trailing-7-day windows from "now", so a timestamp placed
+            # exactly on a boundary can drift into the adjacent bucket purely from
+            # the gap between seeding and viewing. Landing mid-week avoids that.
+            paid_at = days_ago(week * 7 - 3)
             submitted_at = paid_at - timedelta(days=4)
             approved_at = paid_at - timedelta(days=2)
             amount = 8000 + (week * 1500)
