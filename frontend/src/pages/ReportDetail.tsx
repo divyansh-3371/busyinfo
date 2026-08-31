@@ -163,6 +163,7 @@ export default function ReportDetail() {
               ))}
             </div>
             <button
+              className="btn-primary btn-sm"
               disabled={busy}
               onClick={() => runAction(() => setApprovers(reportId, selectedApproverIds))}
             >
@@ -200,6 +201,7 @@ export default function ReportDetail() {
                 {canEditLines && (
                   <td>
                     <button
+                      className="btn-danger btn-sm"
                       disabled={busy}
                       onClick={() => runAction(() => deleteLine(reportId, line.id))}
                     >
@@ -242,7 +244,7 @@ export default function ReportDetail() {
               onChange={(e) => setLineAmount(e.target.value)}
               required
             />
-            <button type="submit" disabled={busy}>
+            <button type="submit" className="btn-primary" disabled={busy}>
               Add line
             </button>
           </form>
@@ -251,16 +253,21 @@ export default function ReportDetail() {
 
       <section className="action-bar">
         {canSubmit && (
-          <button disabled={busy} onClick={() => runAction(() => submitReport(reportId))}>
+          <button className="btn-primary" disabled={busy} onClick={() => runAction(() => submitReport(reportId))}>
             Submit
           </button>
         )}
         {canDecide && (
           <>
-            <button disabled={busy} onClick={() => runAction(() => decideReport(reportId, "approved"))}>
+            <button
+              className="btn-primary"
+              disabled={busy}
+              onClick={() => runAction(() => decideReport(reportId, "approved"))}
+            >
               Approve
             </button>
             <button
+              className="btn-danger"
               disabled={busy}
               onClick={() => {
                 const reason = window.prompt("Reason for rejecting this report?")
@@ -274,17 +281,17 @@ export default function ReportDetail() {
           </>
         )}
         {canMarkPaid && (
-          <button disabled={busy} onClick={() => runAction(() => payReport(reportId))}>
+          <button className="btn-primary" disabled={busy} onClick={() => runAction(() => payReport(reportId))}>
             Mark as paid
           </button>
         )}
         {canArchive && (
-          <button disabled={busy} onClick={() => runAction(() => archiveReport(reportId))}>
+          <button className="btn-ghost" disabled={busy} onClick={() => runAction(() => archiveReport(reportId))}>
             Archive
           </button>
         )}
         {canRestore && (
-          <button disabled={busy} onClick={() => runAction(() => restoreReport(reportId))}>
+          <button className="btn-ghost" disabled={busy} onClick={() => runAction(() => restoreReport(reportId))}>
             Restore
           </button>
         )}
@@ -307,7 +314,7 @@ export default function ReportDetail() {
             onChange={(e) => setCommentBody(e.target.value)}
             required
           />
-          <button type="submit" disabled={busy}>
+          <button type="submit" className="btn-primary" disabled={busy}>
             Comment
           </button>
         </form>

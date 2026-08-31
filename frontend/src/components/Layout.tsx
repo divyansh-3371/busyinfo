@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { useEffect, useState } from "react"
-import { Link } from "react-router-dom"
+import { NavLink } from "react-router-dom"
 import { useAuth } from "../context/AuthContext"
 import { listAlerts } from "../api/alerts"
 
@@ -16,25 +16,39 @@ export default function Layout({ children }: { children: ReactNode }) {
     }
   }, [user])
 
+  const initial = user?.name?.trim()?.[0]?.toUpperCase() ?? "?"
+
   return (
-    <div>
+    <div className="app-shell">
       <header className="app-header">
+        <span className="app-brand">
+          <span className="app-brand-mark">🧾</span>
+          Expenses
+        </span>
         <nav className="app-nav">
-          <Link to="/dashboard">Dashboard</Link>
-          <Link to="/reports">Reports</Link>
-          <Link to="/reports/new">New report</Link>
+          <NavLink to="/dashboard">Dashboard</NavLink>
+          <NavLink to="/reports" end>
+            Reports
+          </NavLink>
+          <NavLink to="/reports/new">New report</NavLink>
           {user?.role === "approver" && (
-            <Link to="/alerts">
+            <NavLink to="/alerts">
               Alerts{alertCount > 0 && <span className="nav-badge">{alertCount}</span>}
-            </Link>
+            </NavLink>
           )}
         </nav>
         <span className="app-user">
-          {user?.name} ({user?.role})
-          <button onClick={logout}>Log out</button>
+          <span className="app-user-avatar">{initial}</span>
+          <span className="app-user-meta">
+            <span className="app-user-name">{user?.name}</span>
+            <span className="app-user-role">{user?.role}</span>
+          </span>
+          <button className="btn-ghost btn-sm" onClick={logout}>
+            Log out
+          </button>
         </span>
       </header>
-      <main>{children}</main>
+      <main className="app-main">{children}</main>
     </div>
   )
 }

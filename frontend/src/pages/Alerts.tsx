@@ -39,34 +39,36 @@ export default function Alerts() {
       {alerts === null && !error && <p>Loading...</p>}
       {alerts !== null && alerts.length === 0 && <p>No stale reports right now.</p>}
       {alerts !== null && alerts.length > 0 && (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Owner</th>
-              <th>Total</th>
-              <th>Submitted</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {alerts.map((r) => (
-              <tr key={r.id}>
-                <td>
-                  <Link to={`/reports/${r.id}`}>{r.title}</Link>
-                </td>
-                <td>{r.owner.name}</td>
-                <td>{formatCents(r.total_cents)}</td>
-                <td>{r.submitted_at ? new Date(r.submitted_at).toLocaleDateString() : "-"}</td>
-                <td>
-                  <button disabled={busyId === r.id} onClick={() => handleDismiss(r.id)}>
-                    Dismiss
-                  </button>
-                </td>
+        <div className="card">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Owner</th>
+                <th>Total</th>
+                <th>Submitted</th>
+                <th />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {alerts.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <Link to={`/reports/${r.id}`}>{r.title}</Link>
+                  </td>
+                  <td>{r.owner.name}</td>
+                  <td>{formatCents(r.total_cents)}</td>
+                  <td>{r.submitted_at ? new Date(r.submitted_at).toLocaleDateString() : "-"}</td>
+                  <td>
+                    <button className="btn-ghost btn-sm" disabled={busyId === r.id} onClick={() => handleDismiss(r.id)}>
+                      Dismiss
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </Layout>
   )

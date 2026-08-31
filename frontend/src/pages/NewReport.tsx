@@ -49,7 +49,7 @@ export default function NewReport() {
           <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
         </label>
         {error && <p className="form-error">{error}</p>}
-        <button type="submit" disabled={submitting}>
+        <button type="submit" className="btn-primary" disabled={submitting}>
           {submitting ? "Creating..." : "Create draft"}
         </button>
       </form>

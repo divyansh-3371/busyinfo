@@ -87,6 +87,7 @@ export default function ReportsList() {
         <h1>Reports</h1>
         {user?.role === "approver" && (
           <button
+            className="btn-ghost"
             onClick={() =>
               downloadExportDueCsv().catch((err) =>
                 setBulkError(err instanceof ApiError ? err.message : "Export failed."),
@@ -168,10 +169,10 @@ export default function ReportsList() {
       {user?.role === "approver" && selectedIds.length > 0 && (
         <div className="action-bar">
           <span>{selectedIds.length} selected</span>
-          <button disabled={bulkBusy} onClick={() => handleBulk("approved")}>
+          <button className="btn-primary" disabled={bulkBusy} onClick={() => handleBulk("approved")}>
             Bulk approve
           </button>
-          <button disabled={bulkBusy} onClick={() => handleBulk("rejected")}>
+          <button className="btn-danger" disabled={bulkBusy} onClick={() => handleBulk("rejected")}>
             Bulk reject
           </button>
         </div>
@@ -188,7 +189,7 @@ export default function ReportsList() {
       )}
 
       {data !== null && data.items.length > 0 && (
-        <>
+        <div className="card">
           <table className="data-table">
             <thead>
               <tr>
@@ -236,17 +237,17 @@ export default function ReportsList() {
           </table>
 
           <div className="pagination">
-            <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            <button className="btn-ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
               Previous
             </button>
             <span>
               Page {page} of {totalPages} ({data.total} total)
             </span>
-            <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+            <button className="btn-ghost" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
               Next
             </button>
           </div>
-        </>
+        </div>
       )}
     </Layout>
   )

@@ -70,11 +70,11 @@ export default function Dashboard() {
             <div style={{ width: "100%", height: 260 }}>
               <ResponsiveContainer>
                 <BarChart data={data.paid_per_week.map((w) => ({ ...w, dollars: w.total_cents / 100 }))}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="week_start" />
-                  <YAxis />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                  <XAxis dataKey="week_start" tick={{ fill: "var(--color-text-muted)", fontSize: 12 }} />
+                  <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 12 }} />
                   <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
-                  <Bar dataKey="dollars" fill="#4a7dbf" />
+                  <Bar dataKey="dollars" fill="#3452e0" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

@@ -29,7 +29,10 @@ export default function Login() {
   return (
     <div className="login-page">
       <form onSubmit={handleSubmit} className="login-form">
-        <h1>Expense Reimbursement</h1>
+        <div>
+          <h1>Expense Reimbursement</h1>
+          <p className="login-subtitle">Sign in to submit, review, or approve reports.</p>
+        </div>
         <label>
           Email
           <input
@@ -50,7 +53,7 @@ export default function Login() {
           />
         </label>
         {error && <p className="form-error">{error}</p>}
-        <button type="submit" disabled={submitting}>
+        <button type="submit" className="btn-primary btn-block" disabled={submitting}>
           {submitting ? "Signing in..." : "Sign in"}
         </button>
       </form>
