@@ -80,6 +80,21 @@ submission. Updated as the build happens, not reconstructed from memory at the e
   (no live Postgres was reachable at the moment it was authored) and verified afterward
   against a real local Postgres 16 container.
 
+## Deployment gotchas hit and fixed
+
+- **Supabase DB password containing `@`**: a connection URL like
+  `postgresql+psycopg2://postgres:Admin@ban16busyinfo@db.xxx.supabase.co:5432/postgres`
+  misparses — the URL parser treats the *last* `@` as the credentials/host delimiter,
+  so part of the password gets read as the start of the hostname. Fix: percent-encode
+  special characters in the password (`@` → `%40`) before putting it in `DATABASE_URL`.
+- **That fix then broke Alembic** with `ValueError: invalid interpolation syntax`:
+  `alembic/env.py` was pushing the URL through `config.set_main_option()`, which
+  stores values in a `ConfigParser` — and `ConfigParser` treats `%` as its own
+  string-interpolation escape character, so a percent-encoded URL breaks it. Fixed by
+  having `env.py` read `DATABASE_URL` directly from `get_settings()` and build the
+  engine with `create_engine()` itself, never routing it through `ConfigParser` at
+  all. See the commit for this fix and `backend/.env.example`'s updated comment.
+
 ## Fragility worth knowing about
 
 - Stale-alert date math (`services/stale_alerts.py`) compares naive UTC datetimes,

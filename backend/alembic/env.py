@@ -2,7 +2,7 @@ import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from sqlalchemy import engine_from_config
+from sqlalchemy import create_engine
 from sqlalchemy import pool
 
 from alembic import context
@@ -23,9 +23,13 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# The real DB URL comes from our app settings (env vars), not alembic.ini, so the
-# same .env used by the app also drives migrations.
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+# The real DB URL comes from our app settings (env vars), not alembic.ini - read
+# directly rather than via config.set_main_option()/get_section(): that route goes
+# through configparser's string interpolation, which chokes on a literal '%' in the
+# URL (e.g. a percent-encoded '@' in a password, '%40') with a cryptic
+# "invalid interpolation syntax" error. Building the engine straight from the
+# settings value sidesteps that entirely.
+DATABASE_URL = get_settings().database_url
 
 target_metadata = Base.metadata
 
@@ -47,9 +51,8 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=url,
+        url=DATABASE_URL,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -66,11 +69,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    connectable = create_engine(DATABASE_URL, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:
         context.configure(
