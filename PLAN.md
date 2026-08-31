@@ -222,10 +222,16 @@ tested. Frontend: alerts page + nav badge count for approvers.
       wasn't tested. Also fixed two lines in this file that had gone stale relative
       to the code (passlib→bcrypt, and the stale-alerts dismissal question that was
       actually already decided). 82 tests total.
-- [ ] `pytest` unit/API tests: lifecycle transitions, self-approval block, bulk per-report
+- [x] `pytest` unit/API tests: lifecycle transitions, self-approval block, bulk per-report
       result shape, total calculation, stale-alert window math, CSV row generation, authz
-      guard rejections
-- [ ] Commit: tests
+      guard rejections — all already covered by the 82 tests from the earlier edge-case
+      pass; re-audited every bullet in section 3 against the actual test files (not just
+      trusted the checkbox) and found exactly one real gap: nothing asserted that an
+      illegal transition attempt leaves `status_events` untouched (true by code
+      construction - the guard raises before the append - but nothing would catch a
+      regression if that ordering ever changed). Added
+      `test_illegal_transitions_write_no_status_event`. 83 tests total, all passing.
+- [x] Commit: tests
 - [x] Fill `docs/architecture.md`, `docs/schema.md`, `docs/plan.md`, `docs/decisions.md`
       (6 decisions, 1 reversed), `docs/ai-prompts.md` — written from the actual
       commit history, NOTES.md, and this conversation's real prompt sequence, not

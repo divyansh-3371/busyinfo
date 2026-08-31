@@ -115,6 +115,42 @@ def test_decide_on_non_submitted_report_rejected(db, make_user):
         report_rules.decide(db, report, approver, "approved")
 
 
+def test_illegal_transitions_write_no_status_event(db, make_user):
+    """PLAN.md's edge-case list: 'Illegal transition attempts do not write a
+    StatusEvent - only real transitions do.' True by construction (every guard in
+    report_rules.py raises before the StatusEvent append), but that ordering has
+    nothing else enforcing it - a refactor could silently reverse it. Cover every
+    rejection path from this file that's tested for status alone, and also check
+    the audit trail actually stayed empty."""
+    owner = make_user()
+    other = make_user()
+    employee = make_user()
+    approver = make_user(role=Role.approver)
+    owner_approver = make_user(role=Role.approver)
+
+    draft_report = make_report(db, owner)
+    with pytest.raises(DomainError):
+        report_rules.submit(db, draft_report, other)  # non-owner submit
+    assert len(draft_report.status_events) == 0
+
+    submitted_report = make_report(db, owner, status=ReportStatus.submitted)
+    with pytest.raises(DomainError):
+        report_rules.decide(db, submitted_report, employee, "approved")  # non-approver
+    with pytest.raises(DomainError):
+        report_rules.decide(db, submitted_report, approver, "rejected", reason=None)  # no reason
+    assert len(submitted_report.status_events) == 0
+
+    self_owned_report = make_report(db, owner_approver, status=ReportStatus.submitted)
+    with pytest.raises(SelfApprovalError):
+        report_rules.decide(db, self_owned_report, owner_approver, "approved")
+    assert len(self_owned_report.status_events) == 0
+
+    draft_again = make_report(db, owner)
+    with pytest.raises(DomainError):
+        report_rules.mark_paid(db, draft_again, approver)  # not approved yet
+    assert len(draft_again.status_events) == 0
+
+
 # --- mark_paid ---
 
 
