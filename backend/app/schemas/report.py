@@ -116,6 +116,7 @@ class ReportListItem(BaseModel):
     total_cents: int
     start_date: date
     end_date: date
+    submitted_at: datetime | None
     archived_at: datetime | None
     created_at: datetime
 
@@ -137,3 +138,23 @@ class ReportListResponse(BaseModel):
 class DecideRequest(BaseModel):
     decision: str  # "approved" | "rejected" - validated in the route against the enum
     reason: str | None = None
+
+
+class AssignApproversRequest(BaseModel):
+    approver_ids: list[int]
+
+
+class BulkDecideRequest(BaseModel):
+    report_ids: list[int]
+    decision: str  # "approved" | "rejected"
+    reason: str | None = None
+
+
+class BulkDecideResultItem(BaseModel):
+    report_id: int
+    ok: bool
+    reason: str | None = None  # populated only when ok is False
+
+
+class BulkDecideResponse(BaseModel):
+    results: list[BulkDecideResultItem]

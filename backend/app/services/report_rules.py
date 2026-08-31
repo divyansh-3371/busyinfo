@@ -67,6 +67,7 @@ def submit(db: Session, report: ExpenseReport, actor: User) -> None:
         raise DomainError(f"Cannot submit a report that is currently {report.status.value}.")
     _log_event(db, report, from_status=report.status, to_status=ReportStatus.submitted, actor=actor)
     report.status = ReportStatus.submitted
+    report.submitted_at = datetime.now(timezone.utc)
 
 
 def decide(

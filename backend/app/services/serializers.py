@@ -14,6 +14,7 @@ def to_report_detail(report: ExpenseReport) -> ReportDetail:
         total_cents=report.total_cents,
         start_date=report.start_date,
         end_date=report.end_date,
+        submitted_at=report.submitted_at,
         archived_at=report.archived_at,
         created_at=report.created_at,
         lines=report.lines,

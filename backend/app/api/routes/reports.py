@@ -1,32 +1,94 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_visible_report
+from app.api.deps import get_current_user, get_visible_report, require_approver
 from app.db.session import get_db
+from app.models.approver import ReportApprover
 from app.models.enums import ReportStatus, Role
 from app.models.report import ExpenseReport
 from app.models.user import User
-from app.schemas.report import ReportCreate, ReportDetail, ReportListItem, ReportUpdate
+from app.schemas.report import (
+    AssignApproversRequest,
+    ReportCreate,
+    ReportDetail,
+    ReportListResponse,
+    ReportUpdate,
+)
+from app.schemas.user import UserOut
 from app.services.report_rules import DomainError, archive, restore
 from app.services.serializers import to_report_detail as _to_detail
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
+SortField = Literal["created_at", "submitted_at", "status", "total_cents"]
+SORT_COLUMNS = {
+    "created_at": ExpenseReport.created_at,
+    "submitted_at": ExpenseReport.submitted_at,
+    "status": ExpenseReport.status,
+    "total_cents": ExpenseReport.total_cents,
+}
 
-@router.get("", response_model=list[ReportListItem])
+
+@router.get("", response_model=ReportListResponse)
 def list_reports(
+    q: str | None = None,
+    status_filter: ReportStatus | None = Query(None, alias="status"),
+    owner_id: int | None = None,
+    approver_id: int | None = None,
+    assigned_to_me: bool = False,
     include_archived: bool = False,
+    sort: SortField = "created_at",
+    sort_dir: Literal["asc", "desc"] = "desc",
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-) -> list[ExpenseReport]:
-    """Basic version for now: everything the user can see, newest first, no
-    search/filter/sort/pagination yet - that's a dedicated later commit (goal 6)."""
+) -> ReportListResponse:
+    """Everything server-side: text search, status/owner/approver filters, sort, and
+    pagination with a total count - never fetch-everything-then-filter-in-Python."""
     query = db.query(ExpenseReport)
+
     if user.role != Role.approver:
         query = query.filter(ExpenseReport.owner_id == user.id)
+
     if not include_archived:
         query = query.filter(ExpenseReport.archived_at.is_(None))
-    return query.order_by(ExpenseReport.created_at.desc()).all()
+
+    if q:
+        query = query.filter(ExpenseReport.title.ilike(f"%{q}%"))
+
+    if status_filter is not None:
+        query = query.filter(ExpenseReport.status == status_filter)
+
+    if owner_id is not None:
+        query = query.filter(ExpenseReport.owner_id == owner_id)
+
+    effective_approver_id = approver_id
+    if assigned_to_me and user.role == Role.approver:
+        effective_approver_id = user.id
+    if effective_approver_id is not None:
+        query = query.filter(
+            ExpenseReport.approver_links.any(ReportApprover.approver_id == effective_approver_id)
+        )
+
+    total = query.count()
+
+    column = SORT_COLUMNS[sort]
+    order = column.asc() if sort_dir == "asc" else column.desc()
+    if sort == "submitted_at":
+        order = order.nulls_last()
+    query = query.order_by(order)
+
+    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    return ReportListResponse(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.get("/approvers", response_model=list[UserOut])
+def list_approvers(db: Session = Depends(get_db), _: User = Depends(require_approver)) -> list[User]:
+    """All users with the approver role - used to populate the assignment picker."""
+    return db.query(User).filter(User.role == Role.approver).order_by(User.name).all()
 
 
 @router.post("", response_model=ReportDetail, status_code=status.HTTP_201_CREATED)
@@ -104,6 +166,40 @@ def restore_report(
         restore(report)
     except DomainError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    db.commit()
+    db.refresh(report)
+    return _to_detail(report)
+
+
+@router.put("/{report_id}/approvers", response_model=ReportDetail)
+def set_approvers(
+    payload: AssignApproversRequest,
+    report: ExpenseReport = Depends(get_visible_report),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_approver),
+) -> ReportDetail:
+    """Replaces the full set of assigned approvers. Any approver may manage
+    assignments on any report they can see - assignment is a queue-filtering
+    convenience, not an access gate (see docs/decisions.md), so this isn't restricted
+    to the report's owner."""
+    unique_ids = set(payload.approver_ids)
+    if unique_ids:
+        found = (
+            db.query(User.id)
+            .filter(User.id.in_(unique_ids), User.role == Role.approver)
+            .all()
+        )
+        found_ids = {uid for (uid,) in found}
+        missing = unique_ids - found_ids
+        if missing:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Not valid approver user ids: {sorted(missing)}",
+            )
+
+    db.query(ReportApprover).filter(ReportApprover.report_id == report.id).delete()
+    for approver_id in unique_ids:
+        db.add(ReportApprover(report_id=report.id, approver_id=approver_id))
     db.commit()
     db.refresh(report)
     return _to_detail(report)

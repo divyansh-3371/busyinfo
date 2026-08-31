@@ -58,12 +58,17 @@ def make_report(
     archived_at: datetime | None = None,
     created_at: datetime | None = None,
 ) -> ExpenseReport:
+    submitted_at = next(
+        (when for _, to_status, _, _, when in status_history if to_status == ReportStatus.submitted),
+        None,
+    )
     report = ExpenseReport(
         owner_id=owner.id,
         title=title,
         start_date=start,
         end_date=end,
         status=status_history[-1][1] if status_history else ReportStatus.draft,
+        submitted_at=submitted_at,
         archived_at=archived_at,
         created_at=created_at or NOW,
     )

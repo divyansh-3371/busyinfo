@@ -16,6 +16,7 @@ class ExpenseReport(Base):
         Index("ix_reports_owner_id", "owner_id"),
         Index("ix_reports_status", "status"),
         Index("ix_reports_archived_at", "archived_at"),
+        Index("ix_reports_submitted_at", "submitted_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -34,6 +35,9 @@ class ExpenseReport(Base):
     # total amount") can be a single indexed ORDER BY instead of a correlated subquery
     # on every list request. See docs/schema.md for the trade-off.
     total_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    # Denormalized: set by services/report_rules.submit() on the most recent
+    # Draft -> Submitted transition. See docs/schema.md.
+    submitted_at: Mapped[datetime | None] = mapped_column(nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

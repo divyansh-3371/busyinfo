@@ -148,11 +148,19 @@ role == approver → `report_rules.decide()` checks `report.status == submitted`
 browser tool available this session — see NOTES.md). 28 backend tests passing.
 
 ### Day 2 morning — the harder required goals
-- [ ] `ReportApprover` assignment endpoint/UI + "assigned to me" queue filter
-- [ ] Server-side search (title), filters (status/owner/approver), sort (submitted date/
+- [x] `ReportApprover` assignment endpoint/UI + "assigned to me" queue filter — any
+      approver may manage assignments on any report (assignment is a queue-filter
+      convenience, not an access gate); `PUT /reports/{id}/approvers` replaces the
+      full set and validates every id is actually an approver
+- [x] Server-side search (title), filters (status/owner/approver), sort (submitted date/
       status/total), pagination with total match count — one SQLAlchemy query, no
-      full-table filtering in Python or in React
-- [ ] Commit: assignment + search/filter/sort/pagination
+      full-table filtering in Python or in React. Added a denormalized
+      `submitted_at` column (migration 0002) so sorting by submitted date is a plain
+      indexed ORDER BY, matching the total_cents precedent.
+- [x] Commit: assignment + search/filter/sort/pagination — 11 new tests (title search,
+      status filter, zero-hit filter, pagination incl. out-of-range page, sort by
+      total amount, invalid sort field rejected with 422, owner/approver filters,
+      assigned-to-me, approver-id validation, role-gated assignment). 39 tests total.
 - [ ] `POST /reports/bulk-decide`: per-report check, structured result distinguishing
       "rejected — you own this report" from other outcomes; bulk-select UI + result summary
 - [ ] `GET /reports/export-due` CSV export of approved-but-unpaid reports

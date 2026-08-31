@@ -1,8 +1,32 @@
 import { apiFetch } from "./client"
-import type { ExpenseCategory, ExpenseLine, ReportDetail, ReportListItem } from "../types"
+import type { ExpenseCategory, ExpenseLine, ReportDetail, ReportListResponse, User } from "../types"
 
-export function listReports(includeArchived = false): Promise<ReportListItem[]> {
-  return apiFetch<ReportListItem[]>("/reports", { params: { include_archived: includeArchived } })
+export interface ReportQuery {
+  q?: string
+  status?: string
+  owner_id?: number
+  approver_id?: number
+  assigned_to_me?: boolean
+  include_archived?: boolean
+  sort?: "created_at" | "submitted_at" | "status" | "total_cents"
+  sort_dir?: "asc" | "desc"
+  page?: number
+  page_size?: number
+}
+
+export function listReports(query: ReportQuery = {}): Promise<ReportListResponse> {
+  return apiFetch<ReportListResponse>("/reports", { params: { ...query } })
+}
+
+export function listApprovers(): Promise<User[]> {
+  return apiFetch<User[]>("/reports/approvers")
+}
+
+export function setApprovers(reportId: number, approverIds: number[]): Promise<ReportDetail> {
+  return apiFetch<ReportDetail>(`/reports/${reportId}/approvers`, {
+    method: "PUT",
+    body: { approver_ids: approverIds },
+  })
 }
 
 export function getReport(id: number): Promise<ReportDetail> {

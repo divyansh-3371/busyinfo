@@ -42,11 +42,11 @@ def test_create_and_list_report_scoped_to_owner(client, make_user):
 
     # Alice sees it in her list.
     r = client.get("/reports", headers=auth_headers(alice))
-    assert any(item["id"] == report_id for item in r.json())
+    assert any(item["id"] == report_id for item in r.json()["items"])
 
     # Bob (a different employee) does not.
     r = client.get("/reports", headers=auth_headers(bob))
-    assert all(item["id"] != report_id for item in r.json())
+    assert all(item["id"] != report_id for item in r.json()["items"])
 
     # Bob also can't fetch it directly - 404, not 403 (don't confirm it exists).
     r = client.get(f"/reports/{report_id}", headers=auth_headers(bob))
@@ -65,7 +65,7 @@ def test_approver_sees_everyone_reports(client, make_user):
     report_id = r.json()["id"]
 
     r = client.get("/reports", headers=auth_headers(carol))
-    assert any(item["id"] == report_id for item in r.json())
+    assert any(item["id"] == report_id for item in r.json()["items"])
 
     r = client.get(f"/reports/{report_id}", headers=auth_headers(carol))
     assert r.status_code == 200
@@ -248,10 +248,10 @@ def test_archive_and_restore(client, make_user):
 
     # Archived report is excluded from the default list...
     r = client.get("/reports", headers=auth_headers(alice))
-    assert all(item["id"] != report_id for item in r.json())
+    assert all(item["id"] != report_id for item in r.json()["items"])
     # ...but included when asked for explicitly.
     r = client.get("/reports?include_archived=true", headers=auth_headers(alice))
-    assert any(item["id"] == report_id for item in r.json())
+    assert any(item["id"] == report_id for item in r.json()["items"])
 
     # Double-archive is a clean 400, not a crash.
     r = client.post(f"/reports/{report_id}/archive", headers=auth_headers(alice))

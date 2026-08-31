@@ -52,8 +52,16 @@ export interface ReportListItem {
   total_cents: number
   start_date: string
   end_date: string
+  submitted_at: string | null
   archived_at: string | null
   created_at: string
+}
+
+export interface ReportListResponse {
+  items: ReportListItem[]
+  total: number
+  page: number
+  page_size: number
 }
 
 export interface ReportDetail extends ReportListItem {

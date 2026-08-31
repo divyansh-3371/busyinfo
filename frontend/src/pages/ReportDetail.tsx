@@ -10,11 +10,13 @@ import {
   decideReport,
   deleteLine,
   getReport,
+  listApprovers,
   payReport,
   restoreReport,
+  setApprovers,
   submitReport,
 } from "../api/reports"
-import type { ExpenseCategory, ReportDetail as ReportDetailType } from "../types"
+import type { ExpenseCategory, ReportDetail as ReportDetailType, User } from "../types"
 import { EXPENSE_CATEGORIES, formatCents } from "../types"
 
 export default function ReportDetail() {
@@ -31,6 +33,19 @@ export default function ReportDetail() {
   const [lineCategory, setLineCategory] = useState<ExpenseCategory>("travel")
   const [lineAmount, setLineAmount] = useState("")
   const [lineDescription, setLineDescription] = useState("")
+
+  const [allApprovers, setAllApprovers] = useState<User[] | null>(null)
+  const [selectedApproverIds, setSelectedApproverIds] = useState<number[]>([])
+
+  useEffect(() => {
+    if (user?.role === "approver") {
+      listApprovers().then(setAllApprovers).catch(() => setAllApprovers(null))
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (report) setSelectedApproverIds(report.approvers.map((a) => a.id))
+  }, [report])
 
   function reload() {
     getReport(reportId)
@@ -115,11 +130,44 @@ export default function ReportDetail() {
         {formatCents(report.total_cents)}
       </p>
       {report.archived_at && <p className="badge">Archived</p>}
-      {report.approvers.length > 0 && (
-        <p>Assigned approvers: {report.approvers.map((a) => a.name).join(", ")}</p>
-      )}
 
       {actionError && <p className="form-error">{actionError}</p>}
+
+      <section>
+        <h2>Assigned approvers</h2>
+        {isApprover && allApprovers ? (
+          <>
+            <div className="approver-picker">
+              {allApprovers.map((a) => (
+                <label key={a.id} className="inline-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={selectedApproverIds.includes(a.id)}
+                    onChange={(e) => {
+                      setSelectedApproverIds((prev) =>
+                        e.target.checked ? [...prev, a.id] : prev.filter((id) => id !== a.id),
+                      )
+                    }}
+                  />
+                  {a.name}
+                </label>
+              ))}
+            </div>
+            <button
+              disabled={busy}
+              onClick={() => runAction(() => setApprovers(reportId, selectedApproverIds))}
+            >
+              Save assignments
+            </button>
+          </>
+        ) : (
+          <p>
+            {report.approvers.length > 0
+              ? report.approvers.map((a) => a.name).join(", ")
+              : "None assigned yet."}
+          </p>
+        )}
+      </section>
 
       <section>
         <h2>Lines</h2>

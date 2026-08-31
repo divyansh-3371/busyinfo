@@ -1,0 +1,193 @@
+"""Search/filter/sort/pagination (goal 6) and approver assignment (goal 5)."""
+import pytest
+from fastapi.testclient import TestClient
+
+from app.core.security import create_access_token
+from app.main import app
+from app.models.enums import Role
+
+
+@pytest.fixture()
+def client(db):
+    from app.db.session import get_db
+
+    def _override():
+        yield db
+
+    app.dependency_overrides[get_db] = _override
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+def auth_headers(user) -> dict:
+    return {"Authorization": f"Bearer {create_access_token(subject=user.id)}"}
+
+
+def create_report(client, owner, title, start="2026-01-01", end="2026-01-02"):
+    r = client.post(
+        "/reports",
+        json={"title": title, "start_date": start, "end_date": end},
+        headers=auth_headers(owner),
+    )
+    assert r.status_code == 201
+    return r.json()["id"]
+
+
+def test_title_search(client, make_user):
+    alice = make_user()
+    create_report(client, alice, "Chicago conference")
+    create_report(client, alice, "NYC client visit")
+
+    r = client.get("/reports?q=chicago", headers=auth_headers(alice))
+    body = r.json()
+    assert body["total"] == 1
+    assert body["items"][0]["title"] == "Chicago conference"
+
+
+def test_status_filter(client, make_user):
+    alice = make_user()
+    draft_id = create_report(client, alice, "Draft report")
+    submitted_id = create_report(client, alice, "Submitted report")
+    client.post(f"/reports/{submitted_id}/submit", headers=auth_headers(alice))
+
+    r = client.get("/reports?status=draft", headers=auth_headers(alice))
+    ids = [item["id"] for item in r.json()["items"]]
+    assert draft_id in ids and submitted_id not in ids
+
+    r = client.get("/reports?status=submitted", headers=auth_headers(alice))
+    ids = [item["id"] for item in r.json()["items"]]
+    assert submitted_id in ids and draft_id not in ids
+
+
+def test_zero_hit_filter_is_empty_not_error(client, make_user):
+    alice = make_user()
+    create_report(client, alice, "Some report")
+    r = client.get("/reports?q=nonexistent-title-xyz", headers=auth_headers(alice))
+    assert r.status_code == 200
+    assert r.json()["items"] == []
+    assert r.json()["total"] == 0
+
+
+def test_pagination_and_total_count(client, make_user):
+    alice = make_user()
+    for i in range(5):
+        create_report(client, alice, f"Report {i}")
+
+    r = client.get("/reports?page=1&page_size=2", headers=auth_headers(alice))
+    body = r.json()
+    assert body["total"] == 5
+    assert len(body["items"]) == 2
+
+    r = client.get("/reports?page=3&page_size=2", headers=auth_headers(alice))
+    body = r.json()
+    assert len(body["items"]) == 1  # last partial page
+
+    # out-of-range page: empty items, correct total, not an error
+    r = client.get("/reports?page=50&page_size=2", headers=auth_headers(alice))
+    assert r.status_code == 200
+    assert r.json()["items"] == []
+    assert r.json()["total"] == 5
+
+
+def test_sort_by_total_amount(client, make_user):
+    alice = make_user()
+    small_id = create_report(client, alice, "Small")
+    big_id = create_report(client, alice, "Big")
+    client.post(
+        f"/reports/{small_id}/lines",
+        json={"date": "2026-01-01", "category": "travel", "amount_cents": 100, "description": "x"},
+        headers=auth_headers(alice),
+    )
+    client.post(
+        f"/reports/{big_id}/lines",
+        json={"date": "2026-01-01", "category": "travel", "amount_cents": 99999, "description": "x"},
+        headers=auth_headers(alice),
+    )
+
+    r = client.get("/reports?sort=total_cents&sort_dir=desc", headers=auth_headers(alice))
+    ids = [item["id"] for item in r.json()["items"]]
+    assert ids.index(big_id) < ids.index(small_id)
+
+
+def test_invalid_sort_field_rejected(client, make_user):
+    alice = make_user()
+    r = client.get("/reports?sort=not_a_real_column", headers=auth_headers(alice))
+    assert r.status_code == 422  # allow-listed via a Literal type, not raw SQL
+
+
+def test_owner_and_approver_filters(client, make_user):
+    alice = make_user()
+    bob = make_user()
+    carol = make_user(role=Role.approver)
+
+    alice_report = create_report(client, alice, "Alice's report")
+    create_report(client, bob, "Bob's report")
+
+    r = client.get(f"/reports?owner_id={alice.id}", headers=auth_headers(carol))
+    ids = [item["id"] for item in r.json()["items"]]
+    assert ids == [alice_report]
+
+    # Assign carol to alice's report, then filter by approver_id.
+    client.put(
+        f"/reports/{alice_report}/approvers",
+        json={"approver_ids": [carol.id]},
+        headers=auth_headers(carol),
+    )
+    r = client.get(f"/reports?approver_id={carol.id}", headers=auth_headers(carol))
+    ids = [item["id"] for item in r.json()["items"]]
+    assert ids == [alice_report]
+
+
+def test_assigned_to_me_filter(client, make_user):
+    alice = make_user()
+    carol = make_user(role=Role.approver)
+    dave = make_user(role=Role.approver)
+
+    report_id = create_report(client, alice, "Needs review")
+    client.put(
+        f"/reports/{report_id}/approvers",
+        json={"approver_ids": [dave.id]},
+        headers=auth_headers(dave),
+    )
+
+    r = client.get("/reports?assigned_to_me=true", headers=auth_headers(dave))
+    assert any(item["id"] == report_id for item in r.json()["items"])
+
+    r = client.get("/reports?assigned_to_me=true", headers=auth_headers(carol))
+    assert all(item["id"] != report_id for item in r.json()["items"])
+
+
+def test_set_approvers_rejects_non_approver_ids(client, make_user):
+    alice = make_user()
+    bob_employee = make_user()
+    carol = make_user(role=Role.approver)
+    report_id = create_report(client, alice, "Trip")
+
+    r = client.put(
+        f"/reports/{report_id}/approvers",
+        json={"approver_ids": [bob_employee.id]},
+        headers=auth_headers(carol),
+    )
+    assert r.status_code == 400
+
+
+def test_set_approvers_requires_approver_role(client, make_user):
+    alice = make_user()
+    report_id = create_report(client, alice, "Trip")
+    r = client.put(
+        f"/reports/{report_id}/approvers",
+        json={"approver_ids": []},
+        headers=auth_headers(alice),
+    )
+    assert r.status_code == 403
+
+
+def test_list_approvers_endpoint(client, make_user):
+    make_user()  # an employee, should not appear
+    carol = make_user(role=Role.approver, name="Carol")
+    dave = make_user(role=Role.approver, name="Dave")
+
+    r = client.get("/reports/approvers", headers=auth_headers(carol))
+    assert r.status_code == 200
+    names = {u["name"] for u in r.json()}
+    assert names == {"Carol", "Dave"}
