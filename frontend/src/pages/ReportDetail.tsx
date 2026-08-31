@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom"
 import Layout from "../components/Layout"
 import { useAuth } from "../context/AuthContext"
 import { ApiError } from "../api/client"
+import { addComment } from "../api/comments"
 import {
   addLine,
   archiveReport,
@@ -36,6 +37,7 @@ export default function ReportDetail() {
 
   const [allApprovers, setAllApprovers] = useState<User[] | null>(null)
   const [selectedApproverIds, setSelectedApproverIds] = useState<number[]>([])
+  const [commentBody, setCommentBody] = useState("")
 
   useEffect(() => {
     if (user?.role === "approver") {
@@ -82,6 +84,13 @@ export default function ReportDetail() {
     setLineDate("")
     setLineAmount("")
     setLineDescription("")
+  }
+
+  async function handleAddComment(e: FormEvent) {
+    e.preventDefault()
+    const body = commentBody
+    setCommentBody("")
+    await runAction(() => addComment(reportId, body))
   }
 
   if (error) return <Layout><p className="form-error">{error}</p></Layout>
@@ -291,6 +300,17 @@ export default function ReportDetail() {
             </li>
           ))}
         </ul>
+        <form onSubmit={handleAddComment} className="inline-form">
+          <input
+            placeholder="Add a comment..."
+            value={commentBody}
+            onChange={(e) => setCommentBody(e.target.value)}
+            required
+          />
+          <button type="submit" disabled={busy}>
+            Comment
+          </button>
+        </form>
       </section>
     </Layout>
   )

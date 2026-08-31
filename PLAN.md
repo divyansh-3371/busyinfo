@@ -174,9 +174,13 @@ browser tool available this session — see NOTES.md). 28 backend tests passing.
       nonexistent id, self-owned labeled distinctly from other failures, empty
       selection rejected, role-gated, CSV header-only when empty, role-gated export).
       46 tests total.
-- [ ] Comments endpoint (append-only) + timeline view merging `StatusEvent`s + `Comment`s,
-      sorted
-- [ ] Commit: comments + timeline
+- [x] Comments endpoint (append-only) + timeline view merging `StatusEvent`s + `Comment`s,
+      sorted (timeline view itself was already built in the Day 1 ReportDetail commit;
+      this adds the missing write side)
+- [x] Commit: comments + timeline — 4 new tests (owner and approver can comment,
+      a non-owning employee gets 404 not 403, blank comment rejected, no PATCH/DELETE
+      route exists at all — structural enforcement of append-only, not a per-request
+      check). 50 tests total.
 - [ ] `services/stale_alerts.py`: days-in-Submitted calculation, dismiss endpoint writing
       `AlertDismissal` with `snoozed_until`, alert list excludes non-expired dismissals,
       nav badge count

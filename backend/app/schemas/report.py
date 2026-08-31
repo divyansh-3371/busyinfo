@@ -97,6 +97,20 @@ class StatusEventOut(BaseModel):
     created_at: datetime
 
 
+class CommentCreate(BaseModel):
+    body: str
+
+    @field_validator("body")
+    @classmethod
+    def body_not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Comment cannot be blank.")
+        if len(v) > MAX_DESCRIPTION_LENGTH:
+            raise ValueError(f"Comment cannot exceed {MAX_DESCRIPTION_LENGTH} characters.")
+        return v
+
+
 class CommentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
