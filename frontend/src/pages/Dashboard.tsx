@@ -1,20 +1,12 @@
-import { useAuth } from "../context/AuthContext"
+import Layout from "../components/Layout"
 
 // Placeholder until the real dashboard (headline numbers, breakdowns, 8-week chart -
-// goal 8) is built later in the plan. This exists now just to prove the auth flow
-// works end to end.
+// goal 8) is built later in the plan.
 export default function Dashboard() {
-  const { user, logout } = useAuth()
-
   return (
-    <div>
-      <header className="app-header">
-        <span>
-          Signed in as {user?.name} ({user?.role})
-        </span>
-        <button onClick={logout}>Log out</button>
-      </header>
-      <p>Dashboard placeholder - built in a later commit.</p>
-    </div>
+    <Layout>
+      <h1>Dashboard</h1>
+      <p>Dashboard placeholder - built in a later commit. See the Reports tab for now.</p>
+    </Layout>
   )
 }

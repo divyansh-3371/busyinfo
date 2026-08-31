@@ -138,7 +138,14 @@ role == approver → `report_rules.decide()` checks `report.status == submitted`
       11 API-level tests through real HTTP against real Postgres), covering the full
       lifecycle walk, self-approval block, reject-requires-reason, archive/restore
       idempotency, and the 404-not-403 visibility check
-- [ ] Basic report list + detail page (no search/filter yet) so the above is visually checkable
+- [x] Basic report list + detail page (no search/filter yet) so the above is visually
+      checkable — ReportsList, ReportDetail (line management, submit/decide/pay/
+      archive/restore actions gated by the same rules as the backend, timeline), and
+      NewReport, sharing a Layout/nav component. TypeScript build is clean; not yet
+      clicked through in a real browser (same caveat as the auth milestone).
+
+**Day 1 complete.** All of it verified except an actual browser click-through (no
+browser tool available this session — see NOTES.md). 28 backend tests passing.
 
 ### Day 2 morning — the harder required goals
 - [ ] `ReportApprover` assignment endpoint/UI + "assigned to me" queue filter

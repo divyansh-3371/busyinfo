@@ -1,0 +1,249 @@
+import { useEffect, useState } from "react"
+import type { FormEvent } from "react"
+import { useParams } from "react-router-dom"
+import Layout from "../components/Layout"
+import { useAuth } from "../context/AuthContext"
+import { ApiError } from "../api/client"
+import {
+  addLine,
+  archiveReport,
+  decideReport,
+  deleteLine,
+  getReport,
+  payReport,
+  restoreReport,
+  submitReport,
+} from "../api/reports"
+import type { ExpenseCategory, ReportDetail as ReportDetailType } from "../types"
+import { EXPENSE_CATEGORIES, formatCents } from "../types"
+
+export default function ReportDetail() {
+  const { id } = useParams<{ id: string }>()
+  const reportId = Number(id)
+  const { user } = useAuth()
+
+  const [report, setReport] = useState<ReportDetailType | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const [lineDate, setLineDate] = useState("")
+  const [lineCategory, setLineCategory] = useState<ExpenseCategory>("travel")
+  const [lineAmount, setLineAmount] = useState("")
+  const [lineDescription, setLineDescription] = useState("")
+
+  function reload() {
+    getReport(reportId)
+      .then(setReport)
+      .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load report."))
+  }
+
+  useEffect(reload, [reportId])
+
+  async function runAction<T>(action: () => Promise<T>) {
+    setActionError(null)
+    setBusy(true)
+    try {
+      await action()
+      reload()
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Something went wrong.")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleAddLine(e: FormEvent) {
+    e.preventDefault()
+    const cents = Math.round(parseFloat(lineAmount) * 100)
+    await runAction(() =>
+      addLine(reportId, {
+        date: lineDate,
+        category: lineCategory,
+        amount_cents: cents,
+        description: lineDescription,
+      }),
+    )
+    setLineDate("")
+    setLineAmount("")
+    setLineDescription("")
+  }
+
+  if (error) return <Layout><p className="form-error">{error}</p></Layout>
+  if (!report) return <Layout><p>Loading...</p></Layout>
+
+  const isOwner = user?.id === report.owner.id
+  const isApprover = user?.role === "approver"
+  const canEditLines = isOwner && report.status === "draft"
+  const canSubmit = isOwner && report.status === "draft"
+  const canDecide = isApprover && !isOwner && report.status === "submitted"
+  const canMarkPaid = isApprover && !isOwner && report.status === "approved"
+  const canArchive = isOwner && !report.archived_at
+  const canRestore = isOwner && !!report.archived_at
+
+  const timeline = [
+    ...report.status_events.map((e) => ({
+      kind: "status" as const,
+      created_at: e.created_at,
+      node: (
+        <span>
+          <strong>{e.actor.name}</strong>: {e.from_status ?? "(new)"} &rarr; {e.to_status}
+          {e.reason && <em> - "{e.reason}"</em>}
+        </span>
+      ),
+    })),
+    ...report.comments.map((c) => ({
+      kind: "comment" as const,
+      created_at: c.created_at,
+      node: (
+        <span>
+          <strong>{c.author.name}</strong> commented: {c.body}
+        </span>
+      ),
+    })),
+  ].sort((a, b) => a.created_at.localeCompare(b.created_at))
+
+  return (
+    <Layout>
+      <div className="page-header">
+        <h1>
+          {report.title} <span className={`status-badge status-${report.status}`}>{report.status}</span>
+        </h1>
+      </div>
+      <p>
+        Owner: {report.owner.name} &middot; {report.start_date} to {report.end_date} &middot; Total:{" "}
+        {formatCents(report.total_cents)}
+      </p>
+      {report.archived_at && <p className="badge">Archived</p>}
+      {report.approvers.length > 0 && (
+        <p>Assigned approvers: {report.approvers.map((a) => a.name).join(", ")}</p>
+      )}
+
+      {actionError && <p className="form-error">{actionError}</p>}
+
+      <section>
+        <h2>Lines</h2>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Amount</th>
+              {canEditLines && <th />}
+            </tr>
+          </thead>
+          <tbody>
+            {report.lines.map((line) => (
+              <tr key={line.id}>
+                <td>{line.date}</td>
+                <td>{line.category}</td>
+                <td>{line.description}</td>
+                <td>{formatCents(line.amount_cents)}</td>
+                {canEditLines && (
+                  <td>
+                    <button
+                      disabled={busy}
+                      onClick={() => runAction(() => deleteLine(reportId, line.id))}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+            {report.lines.length === 0 && (
+              <tr>
+                <td colSpan={5}>No lines yet.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        {canEditLines && (
+          <form onSubmit={handleAddLine} className="inline-form">
+            <input type="date" value={lineDate} onChange={(e) => setLineDate(e.target.value)} required />
+            <select value={lineCategory} onChange={(e) => setLineCategory(e.target.value as ExpenseCategory)}>
+              {EXPENSE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <input
+              placeholder="Description"
+              value={lineDescription}
+              onChange={(e) => setLineDescription(e.target.value)}
+              required
+            />
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              placeholder="Amount"
+              value={lineAmount}
+              onChange={(e) => setLineAmount(e.target.value)}
+              required
+            />
+            <button type="submit" disabled={busy}>
+              Add line
+            </button>
+          </form>
+        )}
+      </section>
+
+      <section className="action-bar">
+        {canSubmit && (
+          <button disabled={busy} onClick={() => runAction(() => submitReport(reportId))}>
+            Submit
+          </button>
+        )}
+        {canDecide && (
+          <>
+            <button disabled={busy} onClick={() => runAction(() => decideReport(reportId, "approved"))}>
+              Approve
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => {
+                const reason = window.prompt("Reason for rejecting this report?")
+                if (reason && reason.trim()) {
+                  runAction(() => decideReport(reportId, "rejected", reason.trim()))
+                }
+              }}
+            >
+              Reject
+            </button>
+          </>
+        )}
+        {canMarkPaid && (
+          <button disabled={busy} onClick={() => runAction(() => payReport(reportId))}>
+            Mark as paid
+          </button>
+        )}
+        {canArchive && (
+          <button disabled={busy} onClick={() => runAction(() => archiveReport(reportId))}>
+            Archive
+          </button>
+        )}
+        {canRestore && (
+          <button disabled={busy} onClick={() => runAction(() => restoreReport(reportId))}>
+            Restore
+          </button>
+        )}
+      </section>
+
+      <section>
+        <h2>Timeline</h2>
+        {timeline.length === 0 && <p>No history yet.</p>}
+        <ul className="timeline">
+          {timeline.map((item, i) => (
+            <li key={i}>
+              <time>{new Date(item.created_at).toLocaleString()}</time> {item.node}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </Layout>
+  )
+}
