@@ -94,6 +94,23 @@ submission. Updated as the build happens, not reconstructed from memory at the e
   having `env.py` read `DATABASE_URL` directly from `get_settings()` and build the
   engine with `create_engine()` itself, never routing it through `ConfigParser` at
   all. See the commit for this fix and `backend/.env.example`'s updated comment.
+- **Render couldn't reach Supabase's direct DB host at all**: every request touching
+  the DB failed with `psycopg2.OperationalError: ... Network is unreachable` against
+  `db.<ref>.supabase.co`'s IPv6 address, even though `/health` (no DB call) worked
+  fine and the same host was reachable from the Supabase MCP tooling (which goes
+  through Supabase's management API, not a raw Postgres connection, so it never hit
+  this). Root cause: Supabase's direct connection host resolves IPv6-only, and
+  Render's outbound networking doesn't support IPv6. Fix: switch `DATABASE_URL` to
+  Supabase's **connection pooler** (Supavisor) host instead - same password,
+  different host/port/username (`postgres.<project-ref>` @
+  `aws-0-<region>.pooler.supabase.com:6543`). That host is IPv4-reachable. Confirmed
+  fixed by re-testing `/auth/login` against the live deploy afterward.
+- **Vercel 404'd on every route except `/`** (`/login`, `/reports/1`, etc.): Vercel's
+  static file server looks for a literal file at the request path and 404s if it
+  isn't there - it has no idea `BrowserRouter` (client-side routing) wants those
+  paths handled by `index.html`. Fixed with a `frontend/vercel.json` rewriting every
+  path to `/index.html`. Confirmed fixed by curling `/login` before (404) and after
+  (200) the fix deployed.
 
 ## Fragility worth knowing about
 

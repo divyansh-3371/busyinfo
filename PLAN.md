@@ -231,13 +231,23 @@ tested. Frontend: alerts page + nav badge count for approvers.
       commit history, NOTES.md, and this conversation's real prompt sequence, not
       reconstructed from memory afterward
 - [x] Commit: docs
-- [ ] Deploy: Supabase prod DB → run Alembic migrations → seed prod DB → Render env vars
+- [x] Deploy: Supabase prod DB → run Alembic migrations → seed prod DB → Render env vars
       (`DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGINS`, `STALE_ALERT_DAYS`,
       `STALE_ALERT_SNOOZE_DAYS`) → Render deploy → Vercel env var (`VITE_API_BASE_URL`) →
-      Vercel deploy
-- [ ] Smoke-test the live URL end to end as both an employee and an approver
-- [ ] Fill `SUBMISSION.md`: URLs, demo credentials per role, stack table, goal checklist,
-      cold-start note (Render free web services sleep after inactivity)
+      Vercel deploy — hit two real deploy bugs along the way, both fixed and documented
+      in NOTES.md: (1) Supabase's direct DB host resolves IPv6-only and Render's
+      outbound networking can't reach it (`Network is unreachable`) - fixed by
+      switching `DATABASE_URL` to Supabase's connection-pooler host (Supavisor,
+      port 6543, IPv4-reachable); (2) Vercel 404'd on every client-side route
+      (`/login`, etc.) because nothing told it to fall back to `index.html` for
+      `BrowserRouter` - fixed with `frontend/vercel.json` rewrites.
+- [x] Smoke-test the live URL end to end as both an employee and an approver — verified
+      via curl (login/token/CORS preflight for both roles) and a manual browser
+      click-through of the deployed frontend.
+- [x] Fill `SUBMISSION.md`: URLs, demo credentials per role, stack table, goal checklist,
+      cold-start note (Render free web services sleep after inactivity) — reflection
+      questions (time spent, what's next, least-happy-with) left as drafts for a
+      personal pass before final submission.
 - [ ] Commit: final docs + submission
 - [ ] Pre-submission audit (Step 4 below)
 
