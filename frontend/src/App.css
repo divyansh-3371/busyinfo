@@ -191,3 +191,13 @@
 
 .bulk-ok { color: #2e7d32; }
 .bulk-fail { color: #c0392b; }
+
+.nav-badge {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: #c0392b;
+  color: white;
+  font-size: 0.75rem;
+}

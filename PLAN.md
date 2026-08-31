@@ -181,10 +181,20 @@ browser tool available this session — see NOTES.md). 28 backend tests passing.
       a non-owning employee gets 404 not 403, blank comment rejected, no PATCH/DELETE
       route exists at all — structural enforcement of append-only, not a per-request
       check). 50 tests total.
-- [ ] `services/stale_alerts.py`: days-in-Submitted calculation, dismiss endpoint writing
+- [x] `services/stale_alerts.py`: days-in-Submitted calculation, dismiss endpoint writing
       `AlertDismissal` with `snoozed_until`, alert list excludes non-expired dismissals,
-      nav badge count
-- [ ] Commit: stale alerts
+      nav badge count. Interpretation choice documented in the module and NOTES.md:
+      the alert list is global (every stale Submitted report), dismissal is personal
+      per-approver state, and any approver may dismiss any stale report — not
+      restricted to reports assigned to them, for the same "assignment is a
+      convenience, not a gate" reason used everywhere else.
+- [x] Commit: stale alerts — 9 unit tests (not-yet-stale, just-stale, non-submitted
+      never stale, dismissed-and-snoozed excluded, dismissed-and-expired reappears
+      using an injected `now` rather than real clock waits, per-approver dismissal
+      isolation, re-dismiss resets the snooze) + 2 API tests. 59 tests total.
+
+**Day 2 morning complete.** All four "harder required goals" (5, 6, 7, 10) done and
+tested. Frontend: alerts page + nav badge count for approvers.
 
 ### Day 2 afternoon — dashboard, edge cases, tests, docs, deploy
 - [ ] Dashboard aggregate endpoint: awaiting-approval count, total due, approved-this-week,

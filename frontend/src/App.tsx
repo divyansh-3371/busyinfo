@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard"
 import ReportsList from "./pages/ReportsList"
 import ReportDetail from "./pages/ReportDetail"
 import NewReport from "./pages/NewReport"
+import Alerts from "./pages/Alerts"
 
 function App() {
   return (
@@ -42,6 +43,14 @@ function App() {
           element={
             <RequireAuth>
               <ReportDetail />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/alerts"
+          element={
+            <RequireAuth>
+              <Alerts />
             </RequireAuth>
           }
         />
