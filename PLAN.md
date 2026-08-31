@@ -211,7 +211,17 @@ tested. Frontend: alerts page + nav badge count for approvers.
       seed offsets could drift into the adjacent week purely from the gap between
       seeding and viewing — confirmed the dashboard logic itself was correct via the
       fixed-`now` unit tests before concluding it was a seed-data artifact, not a bug.
-- [ ] Edge-case pass (see section 3) — implement or explicitly descope each one in `NOTES.md`
+- [x] Edge-case pass (see section 3) — walked every bullet against the actual code and
+      test suite. Found and closed real gaps: no auth tests existed at all (only
+      checked by hand earlier and never committed — now 8 tests), edit-after-submit
+      wasn't tested for report metadata (only lines), archived-report-still-viewable
+      wasn't tested, oversized-amount/invalid-category/invalid-date rejection wasn't
+      tested, delete-line's total recompute wasn't tested, zero-line submit wasn't
+      tested, duplicate-approver-id idempotency wasn't tested, comment-on-archived
+      wasn't tested, and "leaves alert list the instant it's no longer Submitted"
+      wasn't tested. Also fixed two lines in this file that had gone stale relative
+      to the code (passlib→bcrypt, and the stale-alerts dismissal question that was
+      actually already decided). 82 tests total.
 - [ ] `pytest` unit/API tests: lifecycle transitions, self-approval block, bulk per-report
       result shape, total calculation, stale-alert window math, CSV row generation, authz
       guard rejections
@@ -318,8 +328,8 @@ tested. Frontend: alerts page + nav badge count for approvers.
 **Stale alerts**
 - Report becomes non-Submitted (approved/rejected) → immediately drops out of the alert
   list even if it was flagged before, regardless of any prior dismissal.
-- Dismissal only valid for an approver assigned to that report (or, if unassigned reports
-  appear in the general alert view, any approver — decide and document which).
+- **Decided**: any approver may dismiss any stale report's alert, not restricted to
+  reports assigned to them — see `services/stale_alerts.py` and `NOTES.md` for why.
 - Dismissed alert reappears once `snoozed_until` has passed and the report is still
   Submitted — verified with a unit test using an injected fixed "now," not wall-clock timing.
 - Dismissing an already-dismissed, still-snoozed alert → idempotent no-op or extends the
@@ -342,7 +352,7 @@ tested. Frontend: alerts page + nav badge count for approvers.
   — not just HTML form constraints in React.
 - SQLAlchemy's parameterized queries throughout; no raw SQL string interpolation.
 - `.env*` never committed (already gitignored); `SUBMISSION.md`/README never contain real secrets.
-- Passwords hashed with bcrypt via passlib, never logged.
+- Passwords hashed with bcrypt (called directly, not via passlib — see NOTES.md), never logged.
 - JWT stored in the frontend in memory/localStorage (see the auth trade-off above) — no
   rate limiting on login given free-tier/demo scope, noted as a known limitation in
   `NOTES.md`, not silently ignored.

@@ -75,6 +75,18 @@ def test_dismissed_and_snooze_expired_reappears(db, make_user):
     assert report.id in [r.id for r in alerts]
 
 
+def test_report_leaving_submitted_drops_out_immediately(db, make_user):
+    owner = make_user()
+    approver = make_user(role=Role.approver)
+    now = datetime(2026, 1, 10)
+    report = make_report(db, owner, submitted_at=now - timedelta(days=10))
+    assert report.id in [r.id for r in stale_alerts.get_alerts_for_approver(db, approver, now=now)]
+
+    report.status = ReportStatus.approved
+    db.flush()
+    assert report.id not in [r.id for r in stale_alerts.get_alerts_for_approver(db, approver, now=now)]
+
+
 def test_dismissal_is_per_approver_not_global(db, make_user):
     owner = make_user()
     dave = make_user(role=Role.approver)

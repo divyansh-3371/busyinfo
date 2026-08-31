@@ -265,3 +265,113 @@ def test_archive_and_restore(client, make_user):
 def test_401_without_token(client):
     r = client.get("/reports")
     assert r.status_code == 401
+
+
+def test_cannot_edit_report_metadata_after_submit(client, make_user):
+    alice = make_user()
+    report_id = client.post(
+        "/reports",
+        json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
+
+    r = client.patch(
+        f"/reports/{report_id}", json={"title": "Renamed"}, headers=auth_headers(alice)
+    )
+    assert r.status_code == 400
+
+
+def test_archived_report_still_viewable_via_detail(client, make_user):
+    alice = make_user()
+    report_id = client.post(
+        "/reports",
+        json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    client.post(f"/reports/{report_id}/archive", headers=auth_headers(alice))
+
+    r = client.get(f"/reports/{report_id}", headers=auth_headers(alice))
+    assert r.status_code == 200
+    assert r.json()["archived_at"] is not None
+
+
+def test_line_rejects_absurdly_large_amount(client, make_user):
+    alice = make_user()
+    report_id = client.post(
+        "/reports",
+        json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    r = client.post(
+        f"/reports/{report_id}/lines",
+        json={
+            "date": "2026-01-01",
+            "category": "travel",
+            "amount_cents": 999_999_999_999,
+            "description": "x",
+        },
+        headers=auth_headers(alice),
+    )
+    assert r.status_code == 422
+
+
+def test_line_rejects_invalid_category_and_date(client, make_user):
+    alice = make_user()
+    report_id = client.post(
+        "/reports",
+        json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    r = client.post(
+        f"/reports/{report_id}/lines",
+        json={"date": "2026-01-01", "category": "not-a-real-category", "amount_cents": 100, "description": "x"},
+        headers=auth_headers(alice),
+    )
+    assert r.status_code == 422
+    r = client.post(
+        f"/reports/{report_id}/lines",
+        json={"date": "not-a-date", "category": "travel", "amount_cents": 100, "description": "x"},
+        headers=auth_headers(alice),
+    )
+    assert r.status_code == 422
+
+
+def test_delete_line_recomputes_total(client, make_user):
+    alice = make_user()
+    report_id = client.post(
+        "/reports",
+        json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    line_id = client.post(
+        f"/reports/{report_id}/lines",
+        json={"date": "2026-01-01", "category": "travel", "amount_cents": 1000, "description": "x"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    client.post(
+        f"/reports/{report_id}/lines",
+        json={"date": "2026-01-01", "category": "meals", "amount_cents": 500, "description": "y"},
+        headers=auth_headers(alice),
+    )
+
+    r = client.delete(f"/reports/{report_id}/lines/{line_id}", headers=auth_headers(alice))
+    assert r.status_code == 204
+
+    detail = client.get(f"/reports/{report_id}", headers=auth_headers(alice)).json()
+    assert detail["total_cents"] == 500
+    assert len(detail["lines"]) == 1
+
+
+def test_zero_line_report_can_be_submitted(client, make_user):
+    """Documented assumption (NOTES.md): a report with no lines can still be
+    submitted, with a total of 0 - not silently blocked."""
+    alice = make_user()
+    report_id = client.post(
+        "/reports",
+        json={"title": "Empty report", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    r = client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
+    assert r.status_code == 200
+    assert r.json()["total_cents"] == 0

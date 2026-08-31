@@ -74,6 +74,25 @@ def test_blank_comment_rejected(client, make_user):
     assert r.status_code == 422
 
 
+def test_comment_allowed_on_archived_report(client, make_user):
+    """History-keeping shouldn't be gated by report state - commenting on an
+    archived report is still allowed."""
+    alice = make_user()
+    report_id = client.post(
+        "/reports",
+        json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    client.post(f"/reports/{report_id}/archive", headers=auth_headers(alice))
+
+    r = client.post(
+        f"/reports/{report_id}/comments",
+        json={"body": "Following up after archiving"},
+        headers=auth_headers(alice),
+    )
+    assert r.status_code == 201
+
+
 def test_no_edit_or_delete_route_exists(client, make_user):
     """Append-only: not one specific check but structural - there is no PATCH/DELETE
     at this path at all, so trying either falls through to a 405, never succeeding."""

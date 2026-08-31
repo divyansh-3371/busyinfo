@@ -191,3 +191,17 @@ def test_list_approvers_endpoint(client, make_user):
     assert r.status_code == 200
     names = {u["name"] for u in r.json()}
     assert names == {"Carol", "Dave"}
+
+
+def test_duplicate_approver_id_is_idempotent(client, make_user):
+    alice = make_user()
+    carol = make_user(role=Role.approver)
+    report_id = create_report(client, alice, "Trip")
+
+    r = client.put(
+        f"/reports/{report_id}/approvers",
+        json={"approver_ids": [carol.id, carol.id, carol.id]},
+        headers=auth_headers(carol),
+    )
+    assert r.status_code == 200
+    assert [a["id"] for a in r.json()["approvers"]] == [carol.id]  # not duplicated
