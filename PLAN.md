@@ -116,18 +116,28 @@ role == approver → `report_rules.decide()` checks `report.status == submitted`
       via TestClient and over real HTTP (uvicorn + Vite dev servers, live CORS
       preflight). Not yet clicked through in an actual browser (no browser tooling
       available this session) — flagged in NOTES.md as a manual check still owed.
-- [ ] `seed.py`: users (2+ employees, 2+ approvers), enough reports/lines across statuses
-      and ~8 weeks of history to make dashboard/chart non-trivial
-- [ ] Commit: seed script
-- [ ] Role/ownership guard dependencies reused across every route
-- [ ] Report CRUD: create, edit (Draft only), archive/restore (backend + list/detail pages)
-- [ ] Expense line CRUD: add/edit/remove (pre-submit only), server-computed report total
-- [ ] Commit: report + line CRUD
-- [ ] `services/report_rules.py`: lifecycle transition table (Draft→Submitted→Approved/
+- [x] `seed.py`: 4 users (2 employee, 2 approver), 16 reports covering every scenario
+      goals 1-10 need to demo (draft, not-yet-stale/stale/reappeared-after-dismiss
+      submitted, approved-unpaid, rejected-back-to-draft, approver-owns-a-report,
+      archived, 8 weeks of paid history) — verified against local Postgres, safe to
+      re-run
+- [x] Commit: seed script
+- [x] Role/ownership guard dependencies reused across every route (`get_visible_report`
+      returns 404, not 403, for a report outside the viewer's visibility — avoids
+      confirming another user's report id even exists)
+- [x] Report CRUD: create, edit (Draft only), archive/restore (backend routes done;
+      list/detail *pages* on the frontend are still the placeholder Dashboard — real
+      UI is the next piece of work)
+- [x] Expense line CRUD: add/edit/remove (pre-submit only), server-computed report total
+- [x] Commit: report + line CRUD
+- [x] `services/report_rules.py`: lifecycle transition table (Draft→Submitted→Approved/
       Rejected→Paid), self-approval block, reject-requires-reason, illegal-transition message
-- [ ] Submit / decide (approve/reject) / mark-paid endpoints wired to `report_rules`
-- [ ] `StatusEvent` row written on every real transition (append-only, no update/delete route)
-- [ ] Commit: lifecycle + audit trail
+- [x] Submit / decide (approve/reject) / mark-paid endpoints wired to `report_rules`
+- [x] `StatusEvent` row written on every real transition (append-only, no update/delete route)
+- [x] Commit: lifecycle + audit trail — 28 tests passing (17 report_rules unit tests +
+      11 API-level tests through real HTTP against real Postgres), covering the full
+      lifecycle walk, self-approval block, reject-requires-reason, archive/restore
+      idempotency, and the 404-not-403 visibility check
 - [ ] Basic report list + detail page (no search/filter yet) so the above is visually checkable
 
 ### Day 2 morning — the harder required goals
