@@ -257,7 +257,9 @@ tested. Frontend: alerts page + nav badge count for approvers.
 - [ ] Commit: final docs + submission
 - [x] Pre-submission audit (Step 4 below) — found and fixed one real issue: a live
       Supabase DB password was committed in NOTES.md as a fake-looking "example".
-      Redacted; **rotating the actual credential in Supabase is still outstanding.**
+      Redacted, and the credential itself has since been rotated in Supabase and
+      `DATABASE_URL` updated on Render - re-verified live (`/health`, `/auth/login`)
+      afterward. The old value stays visible in old commits, but it's dead now.
 
 ---
 
@@ -426,10 +428,10 @@ noted as a deliberate scope cut in `NOTES.md`.
       was never committed (clean), **but found a real secret elsewhere**: NOTES.md's
       "password containing `@`" example used the actual real Supabase DB password, not
       a placeholder, committed in `ebf154d` and live on the public repo since before
-      this audit. Redacted to a fake example password and pushed - but the old value
-      remains visible in that commit's history. **The DB password must be rotated in
-      Supabase** (and `DATABASE_URL` updated on Render afterward) - redacting the
-      doc alone does not invalidate the leaked credential.
+      this audit. Redacted to a fake example password and pushed. The credential
+      itself has since been rotated in Supabase, `DATABASE_URL` updated on Render, and
+      the live deploy re-verified working - the old value stays visible in that old
+      commit's history, but it's rotated and dead, not a live credential anymore.
 - [x] All 10 goals walked manually against the local build once, end to end — done
       against the deployed app rather than a separate local pass (a stronger check,
       since it's the actual submission target): browser click-through as both roles

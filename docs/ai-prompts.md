@@ -174,8 +174,8 @@ for the actual traceback rather than guessing at the cause.
 ### A mistake I made, not Claude
 I pasted the real Supabase database password directly into the chat when giving
 Claude the connection details. Claude flagged this itself, unprompted, and
-recommended rotating the credential afterward — advice I still need to actually act
-on as of this writing.
+recommended rotating the credential afterward. Done: the password has since been
+reset in Supabase and `DATABASE_URL` updated on Render, re-verified live.
 
 ## Closing out testing, docs, and a pre-submission audit
 
