@@ -70,12 +70,17 @@ with test coverage. What was deliberately scoped down, per the "must-have vs.
 nice-to-have" split `PLAN.md` laid out from the start:
 
 - **No automated frontend test suite.** Backend business logic and API behavior are
-  covered by 82 pytest tests; the frontend was verified by a clean TypeScript build
+  covered by 83 pytest tests; the frontend was verified by a clean TypeScript build
   plus manual/API-level checking, not its own test runner. Given the time budget,
   the backend — where the brief's exact rules actually live — was judged the higher-
   value place to spend testing effort.
 - **No DB-level enforcement of the append-only timeline** (see `docs/schema.md`) —
   enforced by the absence of an update/delete route, not a trigger.
-- **Chart and UI styling stayed minimal** — functional, readable, not visually
-  polished. This was the explicitly lowest-priority item in `PLAN.md`'s time budget,
-  and time never actually ran short enough to need cutting it further than "minimal."
+- **Chart and UI styling started minimal** — functional, readable, not visually
+  polished — for the same reason: it was the explicitly lowest-priority item in
+  `PLAN.md`'s original time budget, and the two-day build never ran short enough to
+  need cutting it further than "minimal." It was revisited in a later session once
+  the app was live and visibly looked like an unstyled scaffold rather than a
+  finished product — see `docs/ai-prompts.md`'s "Deploying it for real" section for
+  that pass (a proper token/color system, a real header and nav, card-based layout,
+  color-coded buttons) and the corresponding commit for what changed.

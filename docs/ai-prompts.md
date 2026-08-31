@@ -132,3 +132,119 @@ None of these were prompted individually — they surfaced while executing the s
 "build it" instruction, and in each case the fix (and, in the docstring and seed-data
 cases, the *reasoning* for why it was a fix rather than a bug) is visible in the
 relevant commit message, not just asserted here after the fact.
+
+## Deploying it for real, in a later session
+
+The build above got the app committed and the pieces individually deploy-ready; a
+separate session picked up from "where did I leave this" and actually finished
+getting it live, debugging two real production bugs neither of us had hit before.
+
+### Prompt
+"where i left my project?"
+
+### What I got
+A status read of `PLAN.md`/`NOTES.md`/git log: all 10 goals implemented and
+committed, deploy and final submission steps still unchecked.
+
+### Prompt
+"2" (picking "deploy" from a numbered list of what to do next)
+
+### What happened
+Claude checked the Supabase database directly (an MCP tool was already connected)
+and found migrations and seed data were already live — ahead of what `PLAN.md`
+still showed as unchecked. It then found `/auth/login` returning a bare `500` on
+the live Render backend by curling it directly, and asked me to paste Render's logs
+for the actual traceback rather than guessing at the cause.
+
+### What went wrong, and what was corrected
+1. **Render couldn't reach Supabase's DB at all**: `psycopg2.OperationalError:
+   ... Network is unreachable` against Supabase's direct-connection host's IPv6
+   address. Diagnosed from the real traceback, not guessed: Supabase's direct host
+   resolves IPv6-only, and Render's outbound networking doesn't support it. Fixed by
+   switching to Supabase's connection pooler host instead (same password, different
+   host/port/username). Verified fixed by re-hitting `/auth/login` afterward and
+   getting a real token back.
+2. **Vercel 404'd on every route except `/`** (`/login`, etc.) once the frontend was
+   deployed — caught by curling `/login` directly rather than assuming the deploy
+   succeeded just because the build was green. Root cause: nothing told Vercel's
+   static host to fall back to `index.html` for React Router's client-side routes.
+   Fixed with a `frontend/vercel.json` rewrite rule; confirmed by curling the same
+   URL again after the fix deployed (404 → 200).
+
+### A mistake I made, not Claude
+I pasted the real Supabase database password directly into the chat when giving
+Claude the connection details. Claude flagged this itself, unprompted, and
+recommended rotating the credential afterward — advice I still need to actually act
+on as of this writing.
+
+## Closing out testing, docs, and a pre-submission audit
+
+### Prompt
+"do pytest edgecase pass first"
+
+### What I got
+Not a rubber-stamp of the existing checkbox: Claude re-ran the suite, then went
+bullet-by-bullet through `PLAN.md`'s own edge-case checklist (section 3) against
+the actual test files rather than trusting that the earlier "82 tests" note meant
+everything on that list was covered. It found one real, specific gap — nothing
+asserted that a rejected/illegal transition leaves `status_events` untouched, true
+only by code construction — and added a test for it rather than just noting the gap.
+
+### Prompt
+"presubmission audit"
+
+### What I got
+Every item in `PLAN.md`'s pre-deploy checklist actually executed, not just
+checked off: `alembic upgrade head` and `seed.py` re-run against a genuinely fresh,
+never-touched local database (row counts cross-checked against the live Supabase
+DB), a frontend production build against the real deployed API (output hashes
+compared byte-for-byte against what Vercel was actually serving), and a real
+`git log -p` / `git log -S` secret scan across all history rather than just
+checking that `.env` itself was never committed.
+
+### What that audit caught
+The scan found a real, serious problem: `NOTES.md`'s "password containing `@`"
+example used my actual real Supabase database password, not a placeholder,
+committed several commits back and live on the public GitHub repo the whole time.
+Claude redacted it immediately, explained clearly that redacting the file doesn't
+invalidate history that's already public, and flagged the password rotation as
+urgent rather than routine cleanup. This is exactly the kind of thing an audit is
+supposed to catch and didn't get softened in the report back to me.
+
+## Making it look like a finished product
+
+### Prompt
+"the frontend is working fine, but looks broken make it more visually apealing
+more sophisticated and aesthetic"
+
+### What I got
+Claude read every page's actual JSX and CSS before touching anything, and found
+the real cause wasn't "needs more polish" but a leftover bug: `index.css` was still
+the original Vite scaffold's landing-page stylesheet (a fixed 1126px centered
+column, `text-align: center` on the whole app, a 56px hero heading, an unrelated
+purple accent color) actively fighting the real app layout underneath it. It
+replaced that with an actual design system — color/spacing/shadow tokens with
+light and dark variants, a real header with active-page nav highlighting, cards for
+every content section, color-coded buttons by intent (primary/danger/ghost) — then
+verified the result with a clean production build before pushing, and confirmed
+the live Vercel deploy was actually serving the new build rather than assuming a
+push would take effect.
+
+### A bug in Claude's own CSS, caught before it shipped
+While reviewing its own redesign, Claude noticed a specificity conflict it had just
+introduced: a new "mute the first paragraph on each page" rule would have overridden
+the red error-message styling on any page where the error was the only paragraph
+rendered (Dashboard, Reports list). It fixed the selector to explicitly exclude
+`.form-error` before pushing, rather than after a review caught it separately.
+
+### Prompt
+"does the project checks everything on readme.md?"
+
+### What I got
+A full pass against every requirement in the brief, not just the 10 numbered
+goals — process requirements (git history, the five docs files), hosting
+requirements (secrets never in the repo — flagged as violated, per the audit
+above), and submission mechanics. It also caught two things unprompted: this very
+file not covering this session's work, and `docs/plan.md` claiming UI styling
+"stayed minimal" when that was no longer true. Both are why this section and the
+edit above it exist.
