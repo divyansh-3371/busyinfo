@@ -39,7 +39,11 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     throw new ApiError(0, "Network error - is the API reachable?")
   }
 
-  if (response.status === 401) {
+  if (response.status === 401 && token) {
+    // A token was sent and rejected - it's genuinely expired/invalid, not a plain
+    // wrong-password case (login requests never carry a token in the first place,
+    // so they fall through to the generic handling below and surface the real
+    // "Invalid email or password" message instead of this one).
     clearToken()
     notifyUnauthorized()
     throw new ApiError(401, "Session expired - please log in again.")
