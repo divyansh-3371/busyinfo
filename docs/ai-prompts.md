@@ -248,3 +248,49 @@ above), and submission mechanics. It also caught two things unprompted: this ver
 file not covering this session's work, and `docs/plan.md` claiming UI styling
 "stayed minimal" when that was no longer true. Both are why this section and the
 edit above it exist.
+
+## Fixing a real bug and a UX pass
+
+### Prompt
+"in the project there is no option for signup or register for new user and also
+if i enter wrong credentials it stuck in a loop fix this"
+
+### What I got
+Two different answers for two different things, not a blanket "fixed both." The
+missing signup was correctly identified as intentional, not a bug - the brief's
+goal 1 only ever says "people sign in," and it's already `NOTES.md`'s first
+documented assumption - so Claude explained that instead of silently building a
+registration flow that wasn't asked for. The wrong-credentials issue turned out to
+be a real bug: `apiFetch` treated *every* `401` response as a session expiring,
+including the login endpoint's own "wrong password" rejection - clearing a token
+that was never set, and showing "Session expired - please log in again" instead
+of the backend's actual "Invalid email or password." Not an infinite loop
+technically, but a wrong, misleading message on every retry, which is exactly
+what reads as being stuck. Fixed by only treating a `401` as session-expiry when a
+token was actually sent with the request - a login attempt never sends one.
+
+### Prompt
+"check for small fixes that provides seamlessness in the user experience. check
+for all the things happening before or after an event... if i select one report
+it says bulk but for single selection it should not say bulk"
+
+### What I got
+A systematic pass through every mutating action's before/during/after state, not
+just the one example given. Beyond the bulk-label wording (now "Approve"/"Reject"
+for one report, "Bulk approve"/"Bulk reject" for more than one), it found several
+real state-consistency bugs on its own: changing the sort field didn't reset
+pagination the way every other filter already did; a stale bulk-result banner
+could linger after changing filters; and, the more serious one - the add-line and
+add-comment forms in `ReportDetail` cleared themselves *unconditionally* after a
+submission attempt, because the shared `runAction` helper swallowed its own
+errors. That meant a rejected expense line (bad amount, invalid date) silently
+wiped the entire form the user had just typed, with no way to recover it. Fixed by
+having `runAction` report success/failure and only clearing input on success.
+Also added a busy state to the one action that didn't have one (CSV export), and
+guarded every form's submit handler against double-firing via Enter, since a
+button's `disabled` attribute doesn't stop a form's `onSubmit` event from firing
+again while a request is already in flight.
+
+### What I corrected
+Nothing here - this was Claude's own audit surfacing bugs I hadn't noticed myself,
+not a correction of something it got wrong.
