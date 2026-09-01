@@ -58,6 +58,12 @@ def _log_event(
             reason=reason,
         )
     )
+    # Every route happens to commit before reading report.status_events back, so
+    # this was never user-visible - but the app's sessions run autoflush=False, so
+    # without this, anything that reads the relationship in the same session right
+    # after calling submit/decide/mark_paid (this app's own tests included) would
+    # see it as empty: the new row exists in Python, not yet in the database.
+    db.flush()
 
 
 def submit(db: Session, report: ExpenseReport, actor: User) -> None:

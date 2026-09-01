@@ -54,6 +54,11 @@ def update_line(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Line not found.")
     for field, value in payload.model_dump().items():
         setattr(line, field, value)
+    # Without this, recalculate_total's query wouldn't see the amount_cents change
+    # just made above - the app's real sessions run with autoflush=False (see
+    # db/session.py), so the edit stays pending until an explicit flush or commit.
+    # add_line/delete_line already flush before recalculating; this one didn't.
+    db.flush()
     recalculate_total(report, db)
     db.commit()
     db.refresh(line)

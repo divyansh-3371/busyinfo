@@ -363,6 +363,41 @@ def test_delete_line_recomputes_total(client, make_user):
     assert len(detail["lines"]) == 1
 
 
+def test_update_line_recomputes_total(client, make_user):
+    """Regression test: update_line was missing the db.flush() that add_line and
+    delete_line both have before recalculate_total, so editing a line's amount left
+    the report's total_cents using the line's *old* amount - wrong, and permanently
+    committed. Caught by tightening the test session to match production's real
+    autoflush=False rather than by this test alone; kept here as the concrete,
+    goal-3-shaped regression check."""
+    alice = make_user()
+    report_id = client.post(
+        "/reports",
+        json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    line_id = client.post(
+        f"/reports/{report_id}/lines",
+        json={"date": "2026-01-01", "category": "travel", "amount_cents": 1000, "description": "x"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    client.post(
+        f"/reports/{report_id}/lines",
+        json={"date": "2026-01-01", "category": "meals", "amount_cents": 500, "description": "y"},
+        headers=auth_headers(alice),
+    )
+
+    r = client.patch(
+        f"/reports/{report_id}/lines/{line_id}",
+        json={"date": "2026-01-01", "category": "travel", "amount_cents": 4000, "description": "x"},
+        headers=auth_headers(alice),
+    )
+    assert r.status_code == 200
+
+    detail = client.get(f"/reports/{report_id}", headers=auth_headers(alice)).json()
+    assert detail["total_cents"] == 4500  # 4000 (edited) + 500, not 1000 + 500
+
+
 def test_zero_line_report_can_be_submitted(client, make_user):
     """Documented assumption (NOTES.md): a report with no lines can still be
     submitted, with a total of 0 - not silently blocked."""

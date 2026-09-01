@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import Layout from "../components/Layout"
 import { useAuth } from "../context/AuthContext"
@@ -32,7 +32,14 @@ export default function ReportsList() {
   const [bulkBusy, setBulkBusy] = useState(false)
   const [csvBusy, setCsvBusy] = useState(false)
 
+  // Search fires a new request on every keystroke - over a real network, responses
+  // can arrive out of order (e.g. the result for "t" landing after "trip"'s). This
+  // counter makes only the most recently *issued* request allowed to update state,
+  // so a slow, stale response can never overwrite a newer one.
+  const requestSeq = useRef(0)
+
   function reload() {
+    const seq = ++requestSeq.current
     setError(null)
     listReports({
       q: q || undefined,
@@ -45,10 +52,14 @@ export default function ReportsList() {
       page_size: PAGE_SIZE,
     })
       .then((res) => {
+        if (seq !== requestSeq.current) return
         setData(res)
         setSelectedIds((prev) => prev.filter((id) => res.items.some((item) => item.id === id)))
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load reports."))
+      .catch((err) => {
+        if (seq !== requestSeq.current) return
+        setError(err instanceof ApiError ? err.message : "Failed to load reports.")
+      })
   }
 
   useEffect(() => {

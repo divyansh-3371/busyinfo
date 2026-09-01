@@ -90,3 +90,8 @@ def dismiss(db: Session, report: ExpenseReport, approver: User, *, now: datetime
                 snoozed_until=snoozed_until,
             )
         )
+    # Same reasoning as report_rules._log_event: the actual /alerts/{id}/dismiss
+    # route commits right after this, so it was never user-visible, but this
+    # function's own effect should be immediately queryable without depending on
+    # the caller to know that - autoflush is off in every real session.
+    db.flush()

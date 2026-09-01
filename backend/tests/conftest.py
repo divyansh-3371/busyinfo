@@ -39,7 +39,12 @@ def engine():
 def db(engine):
     connection = engine.connect()
     transaction = connection.begin()
-    session = sessionmaker(bind=connection)()
+    # autoflush=False to match the app's real SessionLocal (db/session.py) exactly -
+    # this default used to differ, and it silently hid a real bug: a route that
+    # mutated a row and re-queried it without an explicit flush passed every test
+    # (autoflush=True papered over it) while being wrong in production, where
+    # nothing flushes until told to. See update_line's fix for the actual bug.
+    session = sessionmaker(bind=connection, autoflush=False)()
     yield session
     session.close()
     transaction.rollback()
