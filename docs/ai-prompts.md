@@ -294,3 +294,74 @@ again while a request is already in flight.
 ### What I corrected
 Nothing here - this was Claude's own audit surfacing bugs I hadn't noticed myself,
 not a correction of something it got wrong.
+
+## Two rounds of "find every bug like that one"
+
+### Prompt
+"DID YOU CHECK FOR EVERY CASE SCENARIO WHERE CODE CAN BE BROKEN LIKE WHEN I SAY
+THAT IF I FEED WRONG PASSWORD IT GOES INTO LOOP THEN YOU FIX IT, SO I WANT YOU TO
+FIND ALL THE BUGS LIKE THIS IN THE PROJECT SO IT CAN BE FULL PROOF"
+
+### What I got
+Rather than re-reading code for more surface-level issues, Claude checked whether
+the test suite's database session actually matched production's. It didn't - the
+app's real sessions run `autoflush=False` (`db/session.py`), but the test
+fixture never set it, defaulting to `True`. Tightening the test session to match
+production exactly, then re-running the suite, broke 4 previously-green tests -
+each pointing at a real bug that autoflush had been silently papering over:
+
+- `update_line` was missing a `db.flush()` that `add_line`/`delete_line` both
+  already had before recalculating the report's total. In production, editing a
+  line's amount recomputed the total using the line's *old* amount and
+  permanently committed that wrong number - breaking goal 3's exact promise
+  ("total is always the sum of the lines"), invisible in every test because
+  autoflush was covering for it.
+- Two more instances of the same missing-flush shape
+  (`report_rules._log_event`, `stale_alerts.dismiss`) - not reachable as live
+  bugs through the actual HTTP routes today (both already commit before
+  anything reads the result back), but one refactor away from becoming one.
+
+Also found, by reasoning about the code rather than the test gap: `ReportsList`
+fires a new search request on every keystroke with no protection against
+responses arriving out of order - a slow response for an earlier, shorter search
+term could land after a newer one's and silently show stale results.
+
+### Prompt
+"RECHECK FOR ANY ERROR PRONE AREA, VALIDATIONS, CASE SENSITIVITY AND MANY SMALL
+EDGE CASES THAT CAN BREAK THE CODE. THINK BY YOURSELF OF SUCH CASES AS YOU ARE
+FROM THE TESTING TEAM, TEST IT RIGEROUSLY"
+
+### What I got
+This round was tested live against the deployed app with real requests, not just
+read from source - which is what actually confirmed each hypothesis before
+touching any code:
+
+- **Login was case-sensitive on email.** `Alice@Example.com` or
+  `ALICE@EXAMPLE.COM` got rejected as wrong credentials with the *exact right
+  password*, because Postgres' default text `=` is case-sensitive and nothing
+  normalized either side. Confirmed with three live curl calls before fixing -
+  a real lockout, not a theoretical one.
+- **Pydantic's own validation errors were being silently discarded on the
+  frontend.** FastAPI shapes a `field_validator`/`model_validator` rejection's
+  `detail` as an array of `{msg, loc, ...}` objects, not a plain string - the
+  frontend's error handler only ever checked for a string, so blank-title,
+  bad-date, invalid-amount, oversized-description, and blank-comment errors
+  all fell back to a useless "Request failed (422)" instead of the specific
+  message Pydantic had already written. Confirmed by comparing a live Pydantic
+  422 response against a live custom-HTTPException response side by side -
+  they're genuinely different shapes, and only one was handled.
+- **A whitespace-only search silently returned zero results**, contradicting
+  the app's own documented "empty search = no filter" promise - confirmed live
+  (`q=""` returned everything, `q="   "` returned nothing) before fixing.
+- `formatCents` used the viewer's own browser locale for a USD-only app -
+  same amount, different-looking output depending on who's looking.
+
+Also specifically tested and *ruled out* a couple of tempting-looking bugs
+before claiming anything was wrong with them: a password over bcrypt's 72-byte
+limit returns a clean 401, not a crash (already guarded); duplicate report ids
+in one bulk-decide request already resolve correctly report-by-report.
+
+### What I corrected
+Nothing here either - both rounds were Claude finding real bugs on its own
+initiative, verifying each one live before fixing it, and reporting the things
+it checked and found fine alongside the things it fixed.

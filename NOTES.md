@@ -112,6 +112,57 @@ submission. Updated as the build happens, not reconstructed from memory at the e
   path to `/index.html`. Confirmed fixed by curling `/login` before (404) and after
   (200) the fix deployed.
 
+## Real bugs found and fixed after the initial build
+
+Two later QA passes, kept here rather than only in commit messages since these are
+exactly the kind of thing this file exists to track.
+
+- **The test database session didn't match production's.** `db/session.py` runs
+  every real session with `autoflush=False`; the test fixture (`tests/conftest.py`)
+  never set it, defaulting to `True`. That gap hid a real bug: `update_line` was
+  missing the `db.flush()` that `add_line`/`delete_line` both already have before
+  `recalculate_total()`. In production this meant editing a line's amount
+  recomputed the report's total from the line's *old* amount and permanently
+  committed that wrong number - a real break of goal 3's exact promise, invisible
+  in every test because autoflush covered for it. Fixed the bug, then fixed the
+  test session to match production exactly, which is what actually surfaced this
+  (it broke 4 previously-green tests). Two more instances of the identical
+  missing-flush shape (`report_rules._log_event`, `stale_alerts.dismiss`) were
+  hardened the same way, though neither was reachable as a live bug through the
+  actual HTTP routes today.
+- **Login was case-sensitive on email.** Postgres' default text `=` is
+  case-sensitive; `Alice@Example.com` or `ALICE@EXAMPLE.COM` were rejected as
+  wrong credentials with the exact right password. Confirmed live against the
+  deployed backend before fixing. Fixed with a case-folded comparison
+  (`func.lower(User.email) == email.strip().lower()`) - only the comparison
+  changed, stored emails are untouched.
+- **Pydantic's own validation errors were invisible on the frontend.** FastAPI
+  shapes a `field_validator`/`model_validator` rejection's `detail` as an array
+  of `{msg, loc, ...}` objects, not the plain string our own `HTTPException`
+  calls use - `apiFetch` only ever checked for a string, so blank-title,
+  bad-date, invalid-amount, oversized-description, and blank-comment errors all
+  silently fell back to "Request failed (422)" instead of the specific message
+  already written for them. This touched nearly every form in the app. Confirmed
+  by comparing a live Pydantic 422 against a live custom-HTTPException response -
+  genuinely different shapes.
+- **Whitespace-only search silently returned zero results**, contradicting this
+  file's own "empty search = no filter" assumption from the edge-case list - `q`
+  wasn't trimmed before the truthiness check or the `ILIKE` pattern.
+- A search race condition in `ReportsList`: a new request fires on every
+  keystroke with no protection against out-of-order responses - a slow response
+  for an earlier, shorter search term could land after a newer one's and
+  overwrite it. Fixed with a monotonic request-sequence guard.
+- `formatCents` used the viewer's own browser locale for a USD-only app, so the
+  same amount could render differently depending on who's looking. Pinned to
+  `en-US`.
+
+Checked and specifically ruled out, not left unexamined: a password over
+bcrypt's 72-byte limit already returns a clean 401 (the existing
+`except ValueError` in `verify_password` catches it); duplicate report ids in
+one bulk-decide request already resolve correctly, one at a time; archived
+reports staying fully editable is consistent with this app's own "flags filter,
+never gate" pattern used everywhere else, not a bug.
+
 ## Fragility worth knowing about
 
 - Stale-alert date math (`services/stale_alerts.py`) compares naive UTC datetimes,
