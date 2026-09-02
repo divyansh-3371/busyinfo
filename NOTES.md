@@ -155,6 +155,18 @@ exactly the kind of thing this file exists to track.
 - `formatCents` used the viewer's own browser locale for a USD-only app, so the
   same amount could render differently depending on who's looking. Pinned to
   `en-US`.
+- **Row Level Security was disabled on all 8 tables in Supabase** - flagged by
+  Supabase's own advisor the very first time this database was checked in this
+  session (before any of the above), left open at the time as the user's call
+  since enabling it blindly can lock out access if done wrong. Supabase later
+  emailed about it directly as a critical issue, at which point it was actually
+  fixed: `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` on all 8 tables, no
+  policies added. Safe specifically because this app's backend connects with a
+  privileged Postgres role that bypasses RLS by default - the fix only closes
+  off Supabase's separate, auto-generated public PostgREST API (reachable with
+  just the project's anon key), which this app never uses at all. Verified live
+  afterward: login, report listing, and the multi-table dashboard aggregate all
+  still return 200 with RLS on.
 
 Checked and specifically ruled out, not left unexamined: a password over
 bcrypt's 72-byte limit already returns a clean 401 (the existing
