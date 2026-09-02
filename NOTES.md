@@ -167,6 +167,26 @@ exactly the kind of thing this file exists to track.
   just the project's anon key), which this app never uses at all. Verified live
   afterward: login, report listing, and the multi-table dashboard aggregate all
   still return 200 with RLS on.
+- **Login leaked which emails were registered via a timing side-channel.**
+  `if user is None or not verify_password(...)` short-circuits on `or` - an
+  unknown email skipped bcrypt entirely (a fast DB miss), while a real email
+  with the wrong password always ran the full ~100-300ms bcrypt comparison.
+  The response body was already identical either way (tested), but the
+  *timing* wasn't, and that's enough on its own to let an attacker enumerate
+  registered accounts by measuring response latency across a list of
+  candidate emails - a real precursor to targeted credential-stuffing or
+  phishing, worse given there's no login rate limiting (a separate, already-
+  documented limitation). Found via a dedicated security review, not the
+  general bug-hunt passes above. Fixed by always calling `verify_password`
+  exactly once - against the real user's hash, or a precomputed
+  `DUMMY_PASSWORD_HASH` when no user was found - so both paths pay the same
+  bcrypt cost regardless of outcome. Checked for the same pattern anywhere
+  else bcrypt is used in the app: nowhere - `/auth/login` is the only route
+  that ever calls `verify_password` at all, since there's no signup or
+  password-reset route to have the same bug. Covered by a timing-based
+  regression test (`test_unknown_email_takes_as_long_as_wrong_password`,
+  generous 2x tolerance to avoid CI flakiness) rather than just a code-review
+  fix taken on faith.
 
 Checked and specifically ruled out, not left unexamined: a password over
 bcrypt's 72-byte limit already returns a clean 401 (the existing

@@ -365,3 +365,59 @@ in one bulk-decide request already resolve correctly report-by-report.
 Nothing here either - both rounds were Claude finding real bugs on its own
 initiative, verifying each one live before fixing it, and reporting the things
 it checked and found fine alongside the things it fixed.
+
+## A Supabase security alert, and a dedicated security review
+
+### Prompt
+"i got mail from supabase that my project has security vuneralibility. fix it"
+(with a screenshot of Supabase's "Table publicly accessible" critical alert)
+
+### What I got
+Confirmation this was the exact Row Level Security gap Claude's own Supabase
+tooling had already flagged the very first time it checked the database,
+earlier in this session - left open at the time pending a decision on whether
+enabling it blindly was safe. Fixed properly this time: RLS enabled on all 8
+tables with no policies (safe here specifically because this app's backend
+connects with a privileged role that bypasses RLS, so it only closes off
+Supabase's separate public API), verified live that the actual app still
+worked afterward, and - unprompted - turned it into a real Alembic migration
+and back-stamped the live database's migration history to match, since the
+fix had only been applied directly and a fresh deploy would have silently
+reintroduced the exact same gap otherwise.
+
+### Prompt
+"check for more security vunerables"
+
+### What I got
+A dedicated security-review pass (a different mode than the general bug-hunt
+audits above - narrower, deeper, focused specifically on exploitable
+vulnerabilities: injection, auth bypass, secrets, data exposure) surfaced one
+real, concrete finding: `/auth/login`'s `user is None or not verify_password(...)`
+short-circuits on `or`, so an unknown email skips bcrypt entirely while a real
+email with the wrong password always pays the full hash cost. The response
+body was already identical either way; the timing wasn't - enough on its own
+to let an attacker enumerate which emails are registered by measuring
+response latency. Reported first as a structured finding (file, line,
+severity, exploit scenario, fix) before touching any code.
+
+### Prompt
+"fix it and do the same for rest"
+
+### What I got
+The fix - always calling `verify_password` once regardless of whether a user
+was found, against a precomputed dummy hash when there wasn't one - plus the
+"do the same for rest" half actually executed as a real second pass: grepped
+for every other place bcrypt/password verification happens in the app to
+check for the identical pattern elsewhere. Found none - `/auth/login` is the
+only route that ever calls `verify_password` at all, since there's no signup
+or password-reset route to have the same bug in. Reported that honestly
+rather than padding the fix list with unrelated changes to look thorough.
+Backed by a timing-based regression test with a deliberately generous
+tolerance (2x) to avoid flaky CI while still failing hard against the actual
+bug, where the real gap was roughly two orders of magnitude, not a borderline
+difference.
+
+### What I corrected
+Nothing here either - found and fixed on Claude's own initiative once asked
+to look, verified with both a live check and an automated test rather than
+taken on faith.

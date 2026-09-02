@@ -1,7 +1,9 @@
 """Auth edge cases from PLAN.md's edge-case list. Earlier in the build these were
 checked by hand (TestClient + curl) but never committed as automated tests - this
 closes that gap found during the Day 2 edge-case pass."""
+import time
 from datetime import datetime, timedelta, timezone
+from statistics import mean
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,6 +37,41 @@ def test_wrong_password_and_unknown_email_give_identical_error(client, make_user
     )
     assert r_wrong_password.status_code == r_unknown_email.status_code == 401
     assert r_wrong_password.json()["detail"] == r_unknown_email.json()["detail"]
+
+
+def test_unknown_email_takes_as_long_as_wrong_password(client, make_user):
+    """Security regression test: identical response bodies aren't enough on their
+    own - `user is None or not verify_password(...)` used to short-circuit and skip
+    bcrypt entirely for an unknown email, making that case measurably faster than a
+    real-email-wrong-password rejection. That's a timing side channel an attacker
+    can use to enumerate which emails are actually registered, independent of what
+    the response body says. A generous tolerance (2x) keeps this from being flaky
+    under CI noise while still failing hard against the actual bug, where the gap
+    was roughly two orders of magnitude (a DB miss vs. a full bcrypt hash), not a
+    borderline 20-30% difference."""
+    make_user()  # creates user1@example.com / password123
+
+    def timed_login(email: str) -> float:
+        start = time.perf_counter()
+        client.post("/auth/login", json={"email": email, "password": "not-the-password"})
+        return time.perf_counter() - start
+
+    # Warm up (import/JIT/connection-pool effects on the first call in either
+    # category shouldn't count against either side).
+    timed_login("user1@example.com")
+    timed_login("nobody@example.com")
+
+    known_times = [timed_login("user1@example.com") for _ in range(5)]
+    unknown_times = [timed_login("nobody@example.com") for _ in range(5)]
+
+    known_avg = mean(known_times)
+    unknown_avg = mean(unknown_times)
+    assert unknown_avg >= known_avg * 0.5, (
+        f"unknown-email login averaged {unknown_avg:.4f}s vs. "
+        f"{known_avg:.4f}s for a known email with the wrong password - "
+        "the unknown-email path looks like it's skipping the password hash "
+        "comparison, which leaks which emails are registered via timing."
+    )
 
 
 def test_correct_login_returns_usable_token(client, make_user):

@@ -23,6 +23,17 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
         return False
 
 
+# A real bcrypt hash of a password nobody has, computed once at import time. Used
+# by the login route when no matching user is found, so a login attempt spends
+# exactly one bcrypt comparison either way - closes the "unknown email vs. wrong
+# password" timing side-channel documented in NOTES.md. Without this, an
+# unknown-email login returns almost instantly (a DB miss, no hashing at all)
+# while a real-email-wrong-password login takes the full ~100-300ms bcrypt cost -
+# an easily measurable difference an attacker can use to enumerate which emails
+# are actually registered, even though the response body is identical either way.
+DUMMY_PASSWORD_HASH = hash_password("no-such-user-timing-safety-placeholder")
+
+
 def create_access_token(*, subject: int) -> str:
     """Issue a JWT whose only claim is the user id. Role is deliberately NOT baked in
     as a claim - every request re-reads the user's current role from the database, so
