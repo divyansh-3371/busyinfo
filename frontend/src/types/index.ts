@@ -72,5 +72,9 @@ export interface ReportDetail extends ReportListItem {
 }
 
 export function formatCents(cents: number): string {
-  return (cents / 100).toLocaleString(undefined, { style: "currency", currency: "USD" })
+  // Pinned to en-US rather than the viewer's own browser locale: this app is
+  // USD-only, and leaving the locale undefined would format the same amount
+  // differently depending on who's looking (e.g. "1 234,56 $US" instead of
+  // "$1,234.56"), which is confusing for a currency the number never changes.
+  return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" })
 }

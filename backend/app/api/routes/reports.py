@@ -59,6 +59,7 @@ def list_reports(
     if not include_archived:
         query = query.filter(ExpenseReport.archived_at.is_(None))
 
+    q = q.strip() if q else q
     if q:
         query = query.filter(ExpenseReport.title.ilike(f"%{q}%"))
 

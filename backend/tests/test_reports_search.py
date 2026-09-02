@@ -44,6 +44,25 @@ def test_title_search(client, make_user):
     assert body["items"][0]["title"] == "Chicago conference"
 
 
+def test_whitespace_only_search_behaves_like_no_search(client, make_user):
+    """Regression test: q='   ' was being used literally in the ILIKE pattern
+    (three spaces cannot appear in a title with single-spaced words), silently
+    returning zero results - breaking the documented promise that an empty search
+    means no filter, not a query that matches nothing. An accidental space in the
+    search box is an easy real mistake, not just a theoretical one."""
+    alice = make_user()
+    create_report(client, alice, "Chicago conference")
+    create_report(client, alice, "NYC client visit")
+
+    r = client.get("/reports?q=%20%20%20", headers=auth_headers(alice))
+    assert r.json()["total"] == 2
+
+    # Surrounding whitespace around a real term is also trimmed, not treated as
+    # part of the search text.
+    r = client.get("/reports?q=%20chicago%20", headers=auth_headers(alice))
+    assert r.json()["total"] == 1
+
+
 def test_status_filter(client, make_user):
     alice = make_user()
     draft_id = create_report(client, alice, "Draft report")

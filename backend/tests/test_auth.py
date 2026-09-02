@@ -48,6 +48,25 @@ def test_correct_login_returns_usable_token(client, make_user):
     assert r.json()["id"] == user.id
 
 
+def test_login_email_is_case_insensitive(client, make_user):
+    """Regression test: Postgres' default `=` on text is case-sensitive, so
+    "Alice@Example.com" was being rejected as a wrong password entirely, not just
+    an unusual-looking one - a real lockout for anyone whose email client
+    capitalizes, or who simply types the casing differently than it was seeded."""
+    user = make_user()  # userN@example.com, all-lowercase
+    mixed_case_email = user.email.replace("user", "User").replace("@example", "@Example")
+    assert mixed_case_email != user.email  # sanity: the test actually changed the casing
+
+    r = client.post("/auth/login", json={"email": mixed_case_email, "password": "password123"})
+    assert r.status_code == 200
+    assert r.json()["user"]["id"] == user.id
+
+    r = client.post(
+        "/auth/login", json={"email": user.email.upper(), "password": "password123"}
+    )
+    assert r.status_code == 200
+
+
 def test_missing_token_401(client):
     assert client.get("/auth/me").status_code == 401
 

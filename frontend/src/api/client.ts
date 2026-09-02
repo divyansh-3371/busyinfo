@@ -53,7 +53,22 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     let message = `Request failed (${response.status})`
     try {
       const body = await response.json()
-      if (typeof body.detail === "string") message = body.detail
+      if (typeof body.detail === "string") {
+        // Our own HTTPException(status, "some message") calls - report_rules
+        // DomainErrors, ownership/role checks, etc.
+        message = body.detail
+      } else if (Array.isArray(body.detail) && body.detail.length > 0) {
+        // FastAPI/Pydantic's own validation errors (a field_validator or
+        // model_validator raising ValueError) shape `detail` as an array of
+        // {msg, loc, ...} instead - every blank-title/bad-date/bad-amount message
+        // was silently lost to the generic fallback below without this, on every
+        // form in the app. Pydantic prefixes these with "Value error, "; strip
+        // that so the user sees "Title cannot be blank.", not the raw wrapper text.
+        message = body.detail
+          .map((d: { msg?: string }) => (d.msg ?? "").replace(/^Value error,\s*/, ""))
+          .filter(Boolean)
+          .join(" ") || message
+      }
     } catch {
       // response wasn't JSON - keep the generic message
     }
