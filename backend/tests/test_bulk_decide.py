@@ -137,3 +137,26 @@ def test_export_due_requires_approver_role(client, make_user):
     alice = make_user()
     r = client.get("/reports/export-due", headers=auth_headers(alice))
     assert r.status_code == 403
+
+
+def test_export_due_csv_neutralizes_formula_injection(client, make_user):
+    """Security regression test (CWE-1236, CSV/Formula Injection): a report title
+    is set by any employee with no character restrictions, and this export exists
+    specifically to be opened by an approver in Excel/Google Sheets - both treat a
+    cell starting with =, +, -, or @ as a formula to evaluate on open, not literal
+    text. A malicious title could exfiltrate data from the approver's own
+    spreadsheet or render a deceptive link. Every string field this export writes
+    must come back prefixed with a leading apostrophe when it starts with one of
+    those characters, forcing it to render as plain text instead."""
+    alice = make_user()
+    carol = make_user(role=Role.approver)
+    report_id = create_submitted_report(
+        client, alice, '=HYPERLINK("http://evil.example","click me")'
+    )
+    client.post(f"/reports/{report_id}/decide", json={"decision": "approved"}, headers=auth_headers(carol))
+
+    r = client.get("/reports/export-due", headers=auth_headers(carol))
+    rows = list(csv.reader(io.StringIO(r.text)))
+    row = next(row for row in rows[1:] if row[0] == str(report_id))
+    assert row[1] == '\'=HYPERLINK("http://evil.example","click me")'
+    assert not row[1].startswith("=")

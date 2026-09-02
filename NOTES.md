@@ -187,6 +187,23 @@ exactly the kind of thing this file exists to track.
   regression test (`test_unknown_email_takes_as_long_as_wrong_password`,
   generous 2x tolerance to avoid CI flakiness) rather than just a code-review
   fix taken on faith.
+- **CSV/Formula Injection (CWE-1236) in the reimbursements-due export.**
+  `export_due` wrote `report.title` straight into a CSV cell with no
+  neutralization. A report's title is set by any employee with no character
+  restrictions beyond non-blank and a length cap - and this export exists
+  specifically to be opened by an approver in Excel or Google Sheets, both of
+  which treat a cell starting with `=`, `+`, `-`, or `@` as a formula to
+  evaluate on open, not literal text. A title like
+  `=HYPERLINK("http://evil.example","click me")` would render as a deceptive
+  link (or worse, depending on the spreadsheet app's formula settings) the
+  moment an approver opened the export - a legitimate, ordinary action.
+  Fixed with a `_csv_safe()` helper prefixing a leading apostrophe (the
+  standard spreadsheet convention forcing literal-text rendering) onto any
+  field starting with a formula-trigger character, applied to every string
+  column this export writes, not just `title` - cheap insurance against a
+  future column being added without re-deriving this same analysis. Covered
+  by a regression test asserting the exported cell for a formula-shaped
+  title comes back apostrophe-prefixed.
 
 Checked and specifically ruled out, not left unexamined: a password over
 bcrypt's 72-byte limit already returns a clean 401 (the existing

@@ -95,6 +95,22 @@ def list_approvers(db: Session = Depends(get_db), _: User = Depends(require_appr
     return db.query(User).filter(User.role == Role.approver).order_by(User.name).all()
 
 
+_FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: str) -> str:
+    """Neutralizes spreadsheet formula injection (CSV/Formula Injection, CWE-1236):
+    Excel and Google Sheets treat a cell starting with =, +, -, or @ as a formula
+    to evaluate when the file is opened, not literal text. `title` is set by any
+    employee with no character restrictions and flows straight into this export -
+    which exists specifically to be opened in a spreadsheet by an approver/finance
+    user. A leading apostrophe is the standard spreadsheet convention forcing the
+    cell to render as plain text instead of being evaluated."""
+    if value and value[0] in _FORMULA_TRIGGER_CHARS:
+        return "'" + value
+    return value
+
+
 @router.get("/export-due")
 def export_due(db: Session = Depends(get_db), _: User = Depends(require_approver)) -> StreamingResponse:
     """CSV of every Approved-but-unpaid report - the reimbursements due (goal 7).
@@ -116,9 +132,9 @@ def export_due(db: Session = Depends(get_db), _: User = Depends(require_approver
         writer.writerow(
             [
                 r.id,
-                r.title,
-                r.owner.name,
-                r.owner.email,
+                _csv_safe(r.title),
+                _csv_safe(r.owner.name),
+                _csv_safe(r.owner.email),
                 f"{r.total_cents / 100:.2f}",
                 r.start_date.isoformat(),
                 r.end_date.isoformat(),

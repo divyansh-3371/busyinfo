@@ -421,3 +421,21 @@ difference.
 Nothing here either - found and fixed on Claude's own initiative once asked
 to look, verified with both a live check and an automated test rather than
 taken on faith.
+
+### Prompt
+"keep going"
+
+### What I got
+A second real, concrete finding from the same kind of adversarial pass:
+`export_due`'s CSV writer put `report.title` into a cell with no
+neutralization at all. A title is set by any employee with no character
+restrictions, and this export exists specifically to be opened in Excel or
+Google Sheets by an approver - both treat a cell starting with `=`, `+`, `-`,
+or `@` as a formula to evaluate on open. This is a known, named vulnerability
+class (CSV/Formula Injection, CWE-1236), not something invented for this
+project. Fixed with a small `_csv_safe()` helper applied to every string
+column the export writes, backed by a regression test, verified against the
+full suite before committing. Also explicitly checked for other places
+user-controlled text leaves React's automatic escaping into some other
+consuming format (an email, a PDF, another export) - there are none; this
+CSV is the only place in the whole app where that happens.
