@@ -164,6 +164,7 @@ class ReportListItem(BaseModel):
     end_date: date
     submitted_at: datetime | None
     archived_at: datetime | None
+    needs_owner_attention: bool
     created_at: datetime
 
 

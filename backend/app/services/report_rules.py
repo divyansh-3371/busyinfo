@@ -91,6 +91,12 @@ def submit(db: Session, report: ExpenseReport, actor: User) -> None:
     _log_event(db, report, from_status=report.status, to_status=ReportStatus.submitted, actor=actor)
     report.status = ReportStatus.submitted
     report.submitted_at = datetime.now(timezone.utc)
+    # Closes out any pending "you were rejected" mark regardless of whether the
+    # owner ever actually opened the report to see it (GET /reports/{id} also
+    # clears this, but resubmitting is itself a clear enough signal that whatever
+    # needed attention has been dealt with - this is a deliberate second path to
+    # the same state, not something to rely on GET alone for).
+    report.needs_owner_attention = False
 
 
 def decide(
@@ -120,6 +126,10 @@ def decide(
         # consequence of the one already snapshotted above.
         _log_event(db, report, from_status=ReportStatus.rejected, to_status=ReportStatus.draft, actor=actor)
         report.status = ReportStatus.draft
+        # Marks the report for the owner's attention - the nav badge and the
+        # per-row "rejected" tag in the reports list - until they either view it
+        # or resubmit it.
+        report.needs_owner_attention = True
     else:
         # Snapshotted for consistency with rejection, even though an approved
         # report's lines can never be edited again anyway (report_rules never lets

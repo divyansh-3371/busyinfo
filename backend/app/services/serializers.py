@@ -16,6 +16,7 @@ def to_report_detail(report: ExpenseReport) -> ReportDetail:
         end_date=report.end_date,
         submitted_at=report.submitted_at,
         archived_at=report.archived_at,
+        needs_owner_attention=report.needs_owner_attention,
         created_at=report.created_at,
         lines=report.lines,
         approvers=[link.approver for link in report.approver_links],

@@ -272,6 +272,13 @@ export default function ReportsList() {
                   <td>{r.owner.name}</td>
                   <td>
                     <span className={`status-badge status-${r.status}`}>{r.status}</span>
+                    {/* Own report only - an approver browsing the queue doesn't need
+                        to be told "you were rejected" about someone else's report. */}
+                    {r.needs_owner_attention && r.owner.id === user?.id && (
+                      <span className="status-badge status-rejected" style={{ marginLeft: 6 }}>
+                        rejected
+                      </span>
+                    )}
                   </td>
                   <td>{formatCents(r.total_cents)}</td>
                   <td>

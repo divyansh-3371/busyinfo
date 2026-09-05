@@ -67,6 +67,7 @@ export interface ReportListItem {
   end_date: string
   submitted_at: string | null
   archived_at: string | null
+  needs_owner_attention: boolean
   created_at: string
 }
 

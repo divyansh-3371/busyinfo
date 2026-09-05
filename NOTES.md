@@ -68,6 +68,21 @@ submission. Updated as the build happens, not reconstructed from memory at the e
   invisible (someone else's decision, not the viewer's own) navigates away
   gracefully, same treatment as the reject-breaks-the-page fix above, rather
   than surfacing a jarring error for something that happened elsewhere.
+- **A per-row "rejected" mark in the reports list**, requested directly by the
+  user after seeing that a rejected-then-draft report looked identical to any
+  ordinary unfinished draft in their list - no way to tell them apart at a
+  glance. `expense_reports.needs_owner_attention` (new boolean column, default
+  false) is set the moment an approver rejects a report, and cleared by
+  whichever of two things happens first: the owner opens the report
+  (`GET /reports/{id}` clears it as a side effect, scoped to the owner
+  specifically - an approver viewing the same report via their own permanent
+  decision-access doesn't clear a mark that isn't about them) or the owner
+  resubmits it (`submit()` also clears it explicitly, so the mark can't get
+  stuck true if some client resubmits without ever calling GET first). Also
+  simplified `needs-attention-count` to just filter on this flag directly,
+  replacing the earlier query that inferred "still needs attention" from
+  status + status_events history - this flag is the actual, explicit answer to
+  that question now, not something to re-derive at read time.
 - **Stale alerts (goal 10) - a deliberate interpretation of an exact-rule item**: the
   brief says "an approver can dismiss the alert for a report assigned to them," which
   could mean alerts are scoped to assignment. Instead: the alert list is global

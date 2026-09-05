@@ -674,3 +674,29 @@ question at exactly the point real ambiguity existed (what "the version he
 rejected" actually meant), then building precisely that once confirmed,
 including deciding on its own where symmetry was worth adding and saying so
 plainly.
+
+## A visible mark for a rejected report, with a specific clear condition
+
+### Prompt
+"first of all mark the report which is rejected so that owner knows which
+report got rejected and remove the mark right after i interact with it"
+(screenshot of a reports list where a rejected-then-draft report was
+indistinguishable from any ordinary unfinished draft)
+
+### What I got
+A real, specific two-part spec, not a vague "show it somehow" - a visible
+mark on the row, cleared specifically by the owner interacting with that
+report, not by any other event. Implemented as a new boolean column
+(`needs_owner_attention`) rather than trying to infer "has this been seen"
+from existing history, since that state genuinely doesn't exist anywhere
+else in the data model: set true on rejection, cleared by whichever happens
+first between the owner viewing the report or resubmitting it. Rendered as a
+small red "rejected" tag next to the status badge on that one row, and
+scoped so it only ever shows to the actual owner - an approver browsing the
+same list doesn't see it on someone else's report.
+
+### What I corrected
+Nothing - built exactly to the two conditions specified (mark it, clear it
+on interaction), tested both independently (viewing without resubmitting,
+resubmitting without ever viewing) rather than assuming either one alone
+was sufficient.

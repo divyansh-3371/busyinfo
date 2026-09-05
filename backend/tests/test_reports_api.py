@@ -410,6 +410,42 @@ def test_needs_attention_count_only_counts_rejected_drafts(client, make_user):
     assert count_for(alice) == 0
 
 
+def test_needs_attention_flag_shows_on_the_report_and_clears_on_viewing(client, make_user):
+    """The per-row "rejected" mark the owner sees in their reports list - and,
+    separately from resubmitting, simply opening the report (GET) is itself
+    enough to clear it. An approver opening the same report doesn't clear a
+    mark that isn't about them."""
+    alice = make_user()
+    carol = make_user(role=Role.approver)
+    report_id = client.post(
+        "/reports",
+        json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
+    client.post(
+        f"/reports/{report_id}/decide",
+        json={"decision": "rejected", "reason": "Missing receipt"},
+        headers=auth_headers(carol),
+    )
+
+    # Shows up on the report itself, and in the reports list.
+    assert client.get(f"/reports/{report_id}", headers=auth_headers(carol)).json()["needs_owner_attention"] is True
+    listed = client.get("/reports", headers=auth_headers(alice)).json()["items"]
+    assert next(r for r in listed if r["id"] == report_id)["needs_owner_attention"] is True
+
+    # Carol (the rejecting approver, viewing via her permanent decision-access)
+    # opening it does NOT clear alice's mark - it isn't about carol.
+    client.get(f"/reports/{report_id}", headers=auth_headers(carol))
+    assert client.get(
+        "/reports", headers=auth_headers(alice)
+    ).json()["items"][0]["needs_owner_attention"] is True
+
+    # Alice opening it does clear it - viewing alone, no resubmission needed.
+    client.get(f"/reports/{report_id}", headers=auth_headers(alice))
+    assert client.get(f"/reports/{report_id}", headers=auth_headers(alice)).json()["needs_owner_attention"] is False
+
+
 def test_archive_and_restore(client, make_user):
     alice = make_user()
     report_id = client.post(
