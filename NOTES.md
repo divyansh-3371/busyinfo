@@ -68,6 +68,16 @@ submission. Updated as the build happens, not reconstructed from memory at the e
 
 - No rate limiting on login.
 - No automated frontend test suite — manual QA only (see PLAN.md testing strategy).
+- **No email or push notifications anywhere in this app** — an employee finds out
+  their report was rejected only by noticing it themselves, not proactively.
+  Raised directly by the user as a real usability concern. A full notification
+  system was judged out of scope (no email-sending capability exists at all),
+  but a lightweight, in-app mitigation was added: a nav badge (same visual
+  pattern as the approver's stale-alert badge) counting reports currently in
+  Draft *because* they were rejected, not just any unsubmitted draft
+  (`GET /reports/needs-attention-count`). Not role-gated - an approver can just
+  as easily have their own report rejected. Clears itself once the report is
+  fixed and resubmitted, rather than needing a separate dismiss action.
 - Passlib dropped in favor of calling `bcrypt` directly: passlib 1.7.4 throws
   `(trapped) error reading bcrypt version` against bcrypt>=4.1 (a known, unfixed
   incompatibility — passlib is effectively unmaintained). Same security properties,

@@ -311,6 +311,43 @@ def test_reject_requires_reason_via_http(client, make_user):
     assert r.json()["status"] == "draft"  # rejected reports return to draft automatically
 
 
+def test_needs_attention_count_only_counts_rejected_drafts(client, make_user):
+    """The nav badge for 'a rejection needs your attention' - distinct from
+    ordinary Drafts a user just hasn't submitted yet, which shouldn't count."""
+    alice = make_user()
+    carol = make_user(role=Role.approver)
+
+    def count_for(user) -> int:
+        return client.get("/reports/needs-attention-count", headers=auth_headers(user)).json()["count"]
+
+    # A brand-new, never-submitted draft doesn't count.
+    client.post(
+        "/reports",
+        json={"title": "Never submitted", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    )
+    assert count_for(alice) == 0
+
+    # Submit and reject one - now it does.
+    report_id = client.post(
+        "/reports",
+        json={"title": "Will be rejected", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
+    client.post(
+        f"/reports/{report_id}/decide",
+        json={"decision": "rejected", "reason": "Missing receipt"},
+        headers=auth_headers(carol),
+    )
+    assert count_for(alice) == 1
+    assert count_for(carol) == 0  # it's alice's report, not carol's
+
+    # Resubmitting it clears the count - the natural fix, not a separate dismiss.
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
+    assert count_for(alice) == 0
+
+
 def test_archive_and_restore(client, make_user):
     alice = make_user()
     report_id = client.post(

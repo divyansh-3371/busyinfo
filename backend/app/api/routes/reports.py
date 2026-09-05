@@ -12,9 +12,11 @@ from app.db.session import get_db
 from app.models.approver import ReportApprover
 from app.models.enums import ReportStatus, Role
 from app.models.report import ExpenseReport
+from app.models.status_event import StatusEvent
 from app.models.user import User
 from app.schemas.report import (
     AssignApproversRequest,
+    NeedsAttentionCount,
     ReportCreate,
     ReportDetail,
     ReportListResponse,
@@ -105,6 +107,25 @@ def list_approvers(db: Session = Depends(get_db), _: User = Depends(get_current_
     can also manage its assignments - just names/emails of who the approvers are,
     nothing sensitive."""
     return db.query(User).filter(User.role == Role.approver).order_by(User.name).all()
+
+
+@router.get("/needs-attention-count", response_model=NeedsAttentionCount)
+def needs_attention_count(
+    db: Session = Depends(get_db), user: User = Depends(get_current_user)
+) -> NeedsAttentionCount:
+    """How many of *my own* reports are sitting in Draft specifically because they
+    were rejected, not because I just started one and haven't submitted it yet -
+    the nav badge that tells you a rejection needs your attention, since nothing
+    else does (no email, no push notification - this app sends none). Applies to
+    anyone who owns a report, not just employees: an approver can just as easily
+    have their own report rejected by someone else."""
+    count = (
+        db.query(ExpenseReport)
+        .filter(ExpenseReport.owner_id == user.id, ExpenseReport.status == ReportStatus.draft)
+        .filter(ExpenseReport.status_events.any(StatusEvent.to_status == ReportStatus.rejected))
+        .count()
+    )
+    return NeedsAttentionCount(count=count)
 
 
 _FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@", "\t", "\r")

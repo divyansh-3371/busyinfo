@@ -25,6 +25,13 @@ export function listApprovers(): Promise<User[]> {
   return apiFetch<User[]>("/reports/approvers")
 }
 
+/** How many of the current user's own reports are back in Draft specifically
+ * because they were rejected - the nav badge for "a rejection needs your
+ * attention," since this app sends no email/push notifications at all. */
+export function getNeedsAttentionCount(): Promise<{ count: number }> {
+  return apiFetch<{ count: number }>("/reports/needs-attention-count")
+}
+
 export function setApprovers(reportId: number, approverIds: number[]): Promise<ReportDetail> {
   return apiFetch<ReportDetail>(`/reports/${reportId}/approvers`, {
     method: "PUT",

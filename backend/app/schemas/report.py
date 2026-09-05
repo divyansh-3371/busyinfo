@@ -167,6 +167,10 @@ class ReportListResponse(BaseModel):
     page_size: int
 
 
+class NeedsAttentionCount(BaseModel):
+    count: int
+
+
 class DecideRequest(BaseModel):
     decision: str  # "approved" | "rejected" - validated in the route against the enum
     reason: str | None = None

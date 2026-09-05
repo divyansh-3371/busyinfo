@@ -555,3 +555,45 @@ the next prompt above questioning who should control it.
 Nothing in this whole thread - each prompt built on the last (what does this
 mean, why does that look wrong, why is control the way it is) and Claude's
 answers held up under each successive question rather than needing revision.
+
+## A real regression, then a genuine feature request
+
+### Prompt
+"rejection leads to this and when a report rejected owner should be notified
+that approver reject the report with that reason so that he can make
+changes in it but instead it goes directly into draft mode which can be go
+overlook easily" (screenshot of a bare "Report not found" error)
+
+### What I got
+Two different things addressed as two different things, not conflated into
+one fix. The screenshot turned out to be a real regression Claude had
+introduced with the earlier draft-visibility fix: an approver rejecting a
+report correctly sends it back to Draft, but that also makes it instantly
+invisible to that same approver (they don't own it, it's no longer
+non-draft) - the page's own post-action reload then hit that same
+visibility rule, 404'd, and the whole page broke into a scary error for an
+action that had actually just worked. Fixed at the one shared choke point
+(`runAction`) every mutating action already goes through: a 404 on the
+reload immediately after a successful action is the action's own expected
+consequence, not a failure - leave for the reports list instead of showing
+an error.
+
+The notification idea was treated separately, as a real but genuinely
+open-ended feature request rather than something to fold into the bug fix -
+this app sends no email or push notifications at all, and building either
+would be well beyond scope. Claude asked which of three reasonably-scoped
+options to build (a nav badge matching the existing Alerts pattern, showing
+the rejection reason directly in the list, or both) instead of guessing, and
+built the badge: a new `/reports/needs-attention-count` endpoint counting
+reports currently in Draft *because* they were rejected (not just any
+unsubmitted draft), shown as the same visual badge pattern approvers already
+get for stale alerts - but not role-gated, since anyone who owns a report,
+approvers included, can have it rejected.
+
+### What I corrected
+The regression, immediately and without being asked twice - it was Claude's
+own fix that caused it, found by the user actually using the app rather than
+by any of Claude's own testing passes, which is itself worth being honest
+about: live verification after each change catches a lot, but not
+everything, and a real user clicking through it is still how this one
+surfaced.
