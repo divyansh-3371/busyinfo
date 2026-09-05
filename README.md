@@ -99,15 +99,25 @@ fact, by anyone.
 
 ## Screenshots
 
-_Add screenshots here — see the note at the end of this section for how._
+**Dashboard** — headline numbers, status/category breakdown, paid-per-week chart
 
-<!--
-![Login](docs/screenshots/login.png)
 ![Dashboard](docs/screenshots/dashboard.png)
-![Reports list, with a rejected report marked](docs/screenshots/reports-list.png)
-![Report detail — timeline, decision snapshot, line items](docs/screenshots/report-detail.png)
-![Bulk approve/reject](docs/screenshots/bulk-actions.png)
--->
+
+**Reports list** — employee view; the red "1" on Reports is the unread-rejection badge
+
+![Reports list](docs/screenshots/reports-list.png)
+
+**Report detail** — approver assignment, line items, approve/reject, timeline
+
+![Report detail](docs/screenshots/report-detail.png)
+
+**Rejection in the timeline** — reason recorded, then the automatic return to draft
+
+![Rejection timeline](docs/screenshots/rejection-timeline.png)
+
+**Stale-approval alerts**
+
+![Alerts](docs/screenshots/alerts.png)
 
 ## Tech stack
 
