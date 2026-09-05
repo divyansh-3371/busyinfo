@@ -244,6 +244,22 @@ one bulk-decide request already resolve correctly, one at a time; archived
 reports staying fully editable is consistent with this app's own "flags filter,
 never gate" pattern used everywhere else, not a bug.
 
+- **Rejecting a report broke the rejecting approver's own page.** A direct,
+  self-inflicted regression from the draft-visibility fix above, caught by the
+  user hitting it live: an approver rejecting a submitted report correctly
+  sends it back to Draft, but that also makes it instantly invisible to that
+  same approver (they don't own it, and it's no longer non-draft). The
+  frontend's post-action reload then ran straight into that same visibility
+  rule, 404'd, and the whole page flipped into a "Report not found" error - for
+  an action that had actually just worked correctly. Fixed at the one place
+  every mutating action already funnels through (`runAction` in
+  `ReportDetail.tsx`): a 404 on the reload right after a successful action is
+  treated as the action's expected consequence, not a failure - navigate back
+  to the reports list instead of showing a misleading error. Every other
+  action either keeps the actor able to see the result or is owner-only
+  (where the owner always sees their own report regardless of status), so
+  Reject was the only action actually capable of hitting this.
+
 ## Fragility worth knowing about
 
 - Stale-alert date math (`services/stale_alerts.py`) compares naive UTC datetimes,
