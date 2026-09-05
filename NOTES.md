@@ -101,6 +101,12 @@ submission. Updated as the build happens, not reconstructed from memory at the e
     mean `needs_owner_attention IS TRUE` instead, which is what a user
     searching "rejected" actually wants: drafts that got rejected and haven't
     been fixed and resubmitted yet.
+  - **Also clears on archive** (user: "remove highlight even if i archive it
+    also") - archiving is itself a resolution, the owner deciding to walk
+    away from the report rather than fix and resubmit it, so `archive()` now
+    clears the flag too. Otherwise an archived-and-forgotten report would go
+    on padding the nav badge and needs-attention count forever, for
+    something nobody's ever coming back to act on.
 - **Stale alerts (goal 10) - a deliberate interpretation of an exact-rule item**: the
   brief says "an approver can dismiss the alert for a report assigned to them," which
   could mean alerts are scoped to assignment. Instead: the alert list is global

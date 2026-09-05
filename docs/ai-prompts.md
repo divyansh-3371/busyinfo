@@ -749,3 +749,22 @@ in the turn before this one, when in fact my own verification script had a
 methodology flaw (checking the flag via the same `GET` that cleared it), so
 it silently confirmed the bug instead of catching it. The user's manual
 testing caught what the automated check missed.
+
+## One more clear-condition: archiving
+
+### Prompt
+"remove highlight even if i archive it also"
+
+### What I got
+A one-line, unambiguous addition to the same feature: `archive()` now also
+sets `needs_owner_attention = False`, alongside the existing resubmit-clears
+path. Reasoning: archiving is its own kind of resolution - the owner deciding
+not to fix and resubmit at all, just to make it go away - so it shouldn't
+keep counting toward the nav badge or needs-attention count for a report
+nobody's coming back to. Added a test asserting the flag clears on archive
+and that the report drops out of the "rejected" filter (checked with
+`include_archived=true`, since it'd otherwise be excluded from that query
+for an unrelated reason). Full suite: 97 passed.
+
+### What I corrected
+Nothing to correct - a direct, small addition to already-working logic.

@@ -493,6 +493,44 @@ def test_archive_and_restore(client, make_user):
     assert r.json()["archived_at"] is None
 
 
+def test_archiving_a_rejected_report_clears_the_needs_attention_mark(client, make_user):
+    """Archiving is itself a resolution - the owner has decided to walk away
+    from this one rather than fix and resubmit it, so it shouldn't keep
+    flagging the nav badge or needs-attention count."""
+    alice = make_user()
+    carol = make_user(role=Role.approver)
+    report_id = client.post(
+        "/reports",
+        json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    client.post(
+        f"/reports/{report_id}/lines",
+        json={"date": "2026-01-01", "category": "meals", "amount_cents": 500, "description": "lunch"},
+        headers=auth_headers(alice),
+    )
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
+    client.post(
+        f"/reports/{report_id}/decide",
+        json={"decision": "rejected", "reason": "Missing receipt"},
+        headers=auth_headers(carol),
+    )
+    assert (
+        client.get("/reports/needs-attention-count", headers=auth_headers(alice)).json()["count"]
+        == 1
+    )
+
+    r = client.post(f"/reports/{report_id}/archive", headers=auth_headers(alice))
+    assert r.json()["needs_owner_attention"] is False
+    assert (
+        client.get("/reports/needs-attention-count", headers=auth_headers(alice)).json()["count"]
+        == 0
+    )
+    # And it no longer shows under the "rejected" filter either, archived or not.
+    r = client.get("/reports?status=rejected&include_archived=true", headers=auth_headers(alice))
+    assert all(item["id"] != report_id for item in r.json()["items"])
+
+
 def test_401_without_token(client):
     r = client.get("/reports")
     assert r.status_code == 401

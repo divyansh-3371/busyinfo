@@ -159,6 +159,11 @@ def archive(report: ExpenseReport) -> None:
     if report.archived_at is not None:
         raise DomainError("Report is already archived.")
     report.archived_at = datetime.now(timezone.utc)
+    # Archiving is itself a resolution - the owner has decided this report
+    # isn't getting fixed and resubmitted, it's just going away. Leaving the
+    # mark on would keep it flagged in the nav badge and needs-attention count
+    # for a report nobody's ever going to act on again.
+    report.needs_owner_attention = False
 
 
 def restore(report: ExpenseReport) -> None:
