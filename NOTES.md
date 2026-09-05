@@ -72,17 +72,35 @@ submission. Updated as the build happens, not reconstructed from memory at the e
   user after seeing that a rejected-then-draft report looked identical to any
   ordinary unfinished draft in their list - no way to tell them apart at a
   glance. `expense_reports.needs_owner_attention` (new boolean column, default
-  false) is set the moment an approver rejects a report, and cleared by
-  whichever of two things happens first: the owner opens the report
-  (`GET /reports/{id}` clears it as a side effect, scoped to the owner
-  specifically - an approver viewing the same report via their own permanent
-  decision-access doesn't clear a mark that isn't about them) or the owner
-  resubmits it (`submit()` also clears it explicitly, so the mark can't get
-  stuck true if some client resubmits without ever calling GET first). Also
-  simplified `needs-attention-count` to just filter on this flag directly,
-  replacing the earlier query that inferred "still needs attention" from
-  status + status_events history - this flag is the actual, explicit answer to
-  that question now, not something to re-derive at read time.
+  false) is set the moment an approver rejects a report, and simplified
+  `needs-attention-count` to just filter on this flag directly, replacing the
+  earlier query that inferred "still needs attention" from status +
+  status_events history.
+  - **Revised after live testing surfaced two real bugs the first cut missed**
+    (user: "still when i filter for rejected can not see the rejected reports
+    in approvers portal, and there is no highlight to rejected report in
+    employee portal also"). First cut cleared the flag on `GET /reports/{id}`
+    (viewing = acknowledging) - but reading the rejection reason is the very
+    first thing an owner does, and that same click already fires the GET,
+    wiping the mark before it's ever seen highlighted in the list. Changed to
+    clear **only on resubmit** - the one action that actually addresses a
+    rejection - so the mark survives however many times the owner opens the
+    report to read why. Second, deeper bug: `GET /reports` (the list endpoint)
+    had its own, separate visibility filter for approvers
+    (`owner_id == me OR status != draft`) that never got the "you can always
+    see a report you've personally decided on" exception added earlier for
+    the single-report route (`get_visible_report`'s `_has_ever_decided`) - so
+    a report an approver rejected, now back in draft, was invisible in their
+    list *at all*, filter or no filter. Fixed by adding the same
+    `EXISTS(status_events where actor_id = me and to_status in
+    (approved, rejected))` condition to the list query. Third: the "rejected"
+    status filter itself was dead for *everyone*, not just approvers - a
+    report's real `status` column is never actually `"rejected"`, since
+    `decide()` cascades it straight to `draft` in the same call, so
+    `status == 'rejected'` never matches anything. Redefined the filter to
+    mean `needs_owner_attention IS TRUE` instead, which is what a user
+    searching "rejected" actually wants: drafts that got rejected and haven't
+    been fixed and resubmitted yet.
 - **Stale alerts (goal 10) - a deliberate interpretation of an exact-rule item**: the
   brief says "an approver can dismiss the alert for a report assigned to them," which
   could mean alerts are scoped to assignment. Instead: the alert list is global

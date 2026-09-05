@@ -696,7 +696,56 @@ scoped so it only ever shows to the actual owner - an approver browsing the
 same list doesn't see it on someone else's report.
 
 ### What I corrected
-Nothing - built exactly to the two conditions specified (mark it, clear it
-on interaction), tested both independently (viewing without resubmitting,
-resubmitting without ever viewing) rather than assuming either one alone
-was sufficient.
+Nothing at the time - built exactly to the two conditions specified (mark it,
+clear it on interaction), tested both independently (viewing without
+resubmitting, resubmitting without ever viewing) rather than assuming either
+one alone was sufficient. Turned out to be wrong in practice anyway - see the
+next entry, where the user's own live testing caught it.
+
+## "Nothing changed" - the mark and the filter were both still broken
+
+### Prompt
+"nothing changed, still when i filter for rejected can not see the rejected
+reports in approvers portal, and there is no highlight to rejected report in
+employee portal also"
+
+### What I got
+Two real, distinct bugs, both found by checking live behavior against the
+running app rather than trusting the prior tests:
+
+1. **The mark cleared before anyone could see it.** It cleared on
+   `GET /reports/{id}` on the theory that "viewing = acknowledging" - but
+   reading the rejection reason is the first thing an owner does after
+   getting rejected, and that click *is* the GET, wiping the mark before it
+   ever renders in the list. Fixed by only clearing it on resubmit - the
+   action that actually addresses a rejection - not on merely opening the
+   report, however many times.
+2. **The "rejected" status filter matched nothing, for anyone.** A report's
+   `status` column is never actually `"rejected"` - `decide()` cascades it
+   straight to `draft` in the same call - so `status == 'rejected'` was
+   always an empty query, filter or no filter, approver or owner. Redefined
+   the filter as `needs_owner_attention IS TRUE`, which is the real meaning
+   behind "show me rejected reports."
+3. **A deeper one underneath both**, found while fixing #2: the reports
+   *list* endpoint had its own separate visibility rule for approvers
+   (`owner_id == me OR status != draft`) that never got the "you can always
+   see a report you've personally decided on" exception added earlier for
+   the single-report route. So a report an approver rejected, now back in
+   draft, was invisible in their list entirely - not a filter problem at
+   all, the row was never there to filter. Added the same
+   `EXISTS(status_events ...)` condition to the list query that
+   `get_visible_report` already used for a single report.
+
+Verified live: rejected a fresh test report as carol, confirmed via curl that
+`?status=rejected` now returns it for both alice and carol, that alice's list
+row keeps the mark through repeated views, and that only resubmitting clears
+it - then deleted the test data immediately.
+
+### What I corrected
+The previous entry's "clear on view" design was the actual bug - correct as
+written, wrong as a mental model of when a user actually looks at something.
+Also worth naming plainly: I'd claimed the feature was live-verified working
+in the turn before this one, when in fact my own verification script had a
+methodology flaw (checking the flag via the same `GET` that cleared it), so
+it silently confirmed the bug instead of catching it. The user's manual
+testing caught what the automated check missed.

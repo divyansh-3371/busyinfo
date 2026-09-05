@@ -12,6 +12,7 @@ from app.db.session import get_db
 from app.models.approver import ReportApprover
 from app.models.enums import ReportStatus, Role
 from app.models.report import ExpenseReport
+from app.models.status_event import StatusEvent
 from app.models.user import User
 from app.schemas.report import (
     AssignApproversRequest,
@@ -59,11 +60,21 @@ def list_reports(
         query = query.filter(ExpenseReport.owner_id == user.id)
     else:
         # Approvers see everything submitted-or-later, plus their own reports
-        # regardless of status - a Draft is another employee's private, unfinished
-        # work and isn't visible to anyone else until they submit it (matches the
-        # same rule in get_visible_report).
+        # regardless of status, plus any report they've personally decided on
+        # before (approved or rejected it) no matter what its current status
+        # is now - matches get_visible_report's rules for a single report
+        # exactly, so a report doesn't vanish from the list the moment it
+        # cascades back to draft after this same approver rejected it.
+        decided_report_ids = db.query(StatusEvent.report_id).filter(
+            StatusEvent.actor_id == user.id,
+            StatusEvent.to_status.in_([ReportStatus.approved, ReportStatus.rejected]),
+        )
         query = query.filter(
-            or_(ExpenseReport.owner_id == user.id, ExpenseReport.status != ReportStatus.draft)
+            or_(
+                ExpenseReport.owner_id == user.id,
+                ExpenseReport.status != ReportStatus.draft,
+                ExpenseReport.id.in_(decided_report_ids),
+            )
         )
 
     if not include_archived:
@@ -74,7 +85,16 @@ def list_reports(
         query = query.filter(ExpenseReport.title.ilike(f"%{q}%"))
 
     if status_filter is not None:
-        query = query.filter(ExpenseReport.status == status_filter)
+        if status_filter == ReportStatus.rejected:
+            # "rejected" never actually persists as a report's current status -
+            # decide() cascades it straight to draft in the same call, so it's
+            # only ever a momentary value inside a status_event. What a user
+            # searching "rejected" actually means is "drafts that got rejected
+            # and haven't been fixed and resubmitted yet", which is exactly
+            # what needs_owner_attention tracks.
+            query = query.filter(ExpenseReport.needs_owner_attention.is_(True))
+        else:
+            query = query.filter(ExpenseReport.status == status_filter)
 
     if owner_id is not None:
         query = query.filter(ExpenseReport.owner_id == owner_id)
@@ -204,15 +224,14 @@ def get_report(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ReportDetail:
-    # Viewing it is what "interacting with it" means for clearing the rejected
-    # mark - the owner opening the report is itself the acknowledgment, no
-    # separate "mark as read" click needed. Scoped to the owner specifically:
-    # an approver opening the same report (they're allowed to, once it's
-    # visible to them) shouldn't clear a mark that isn't about them.
-    if report.owner_id == user.id and report.needs_owner_attention:
-        report.needs_owner_attention = False
-        db.commit()
-        db.refresh(report)
+    # Deliberately does NOT clear needs_owner_attention. It used to, on the
+    # theory that opening the report is itself the acknowledgment - but in
+    # practice, reading the rejection reason is the very first thing an owner
+    # does, and that same click already fires this GET, wiping the mark before
+    # they ever see it highlighted in the reports list. The mark now means
+    # "this report is currently sitting rejected, unresolved" and only goes
+    # away once the owner actually resubmits a fix (see report_rules.submit),
+    # which is the one action that actually addresses a rejection.
     return _to_detail(report)
 
 

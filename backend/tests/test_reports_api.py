@@ -410,11 +410,12 @@ def test_needs_attention_count_only_counts_rejected_drafts(client, make_user):
     assert count_for(alice) == 0
 
 
-def test_needs_attention_flag_shows_on_the_report_and_clears_on_viewing(client, make_user):
-    """The per-row "rejected" mark the owner sees in their reports list - and,
-    separately from resubmitting, simply opening the report (GET) is itself
-    enough to clear it. An approver opening the same report doesn't clear a
-    mark that isn't about them."""
+def test_needs_attention_flag_shows_on_the_report_and_clears_only_on_resubmit(client, make_user):
+    """The per-row "rejected" mark the owner sees in their reports list. Viewing
+    the report - by the owner or by the rejecting approver - must NOT clear it:
+    reading the rejection reason is the first thing an owner does, and if that
+    same GET wiped the mark, it would vanish before it's ever seen in the list.
+    It only clears once the owner actually resubmits a fix."""
     alice = make_user()
     carol = make_user(role=Role.approver)
     report_id = client.post(
@@ -422,6 +423,11 @@ def test_needs_attention_flag_shows_on_the_report_and_clears_on_viewing(client, 
         json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
         headers=auth_headers(alice),
     ).json()["id"]
+    client.post(
+        f"/reports/{report_id}/lines",
+        json={"date": "2026-01-01", "category": "meals", "amount_cents": 500, "description": "lunch"},
+        headers=auth_headers(alice),
+    )
     client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
     client.post(
         f"/reports/{report_id}/decide",
@@ -434,16 +440,29 @@ def test_needs_attention_flag_shows_on_the_report_and_clears_on_viewing(client, 
     listed = client.get("/reports", headers=auth_headers(alice)).json()["items"]
     assert next(r for r in listed if r["id"] == report_id)["needs_owner_attention"] is True
 
+    # The "rejected" status filter surfaces it too, for both alice and carol -
+    # since a report's real status is never actually "rejected" (it's already
+    # back to draft), this filter is defined in terms of the flag instead.
+    for u in (alice, carol):
+        filtered = client.get("/reports?status=rejected", headers=auth_headers(u)).json()["items"]
+        assert any(r["id"] == report_id for r in filtered)
+
     # Carol (the rejecting approver, viewing via her permanent decision-access)
-    # opening it does NOT clear alice's mark - it isn't about carol.
+    # opening it does NOT clear alice's mark.
     client.get(f"/reports/{report_id}", headers=auth_headers(carol))
     assert client.get(
         "/reports", headers=auth_headers(alice)
     ).json()["items"][0]["needs_owner_attention"] is True
 
-    # Alice opening it does clear it - viewing alone, no resubmission needed.
+    # Alice opening it - even repeatedly - does NOT clear it either.
     client.get(f"/reports/{report_id}", headers=auth_headers(alice))
-    assert client.get(f"/reports/{report_id}", headers=auth_headers(alice)).json()["needs_owner_attention"] is False
+    client.get(f"/reports/{report_id}", headers=auth_headers(alice))
+    assert client.get(f"/reports/{report_id}", headers=auth_headers(alice)).json()["needs_owner_attention"] is True
+
+    # Only resubmitting clears it, and it drops out of the "rejected" filter.
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
+    filtered = client.get("/reports?status=rejected", headers=auth_headers(alice)).json()["items"]
+    assert not any(r["id"] == report_id for r in filtered)
 
 
 def test_archive_and_restore(client, make_user):

@@ -39,12 +39,14 @@ class ExpenseReport(Base):
     # Draft -> Submitted transition. See docs/schema.md.
     submitted_at: Mapped[datetime | None] = mapped_column(nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(nullable=True)
-    # True from the moment an approver rejects this report until the owner either
-    # views it or resubmits it - whichever comes first (see report_rules.py and
-    # GET /reports/{id}). Drives the per-row "rejected" mark in the reports list
-    # and the nav badge count; deliberately not derived from status_events at read
-    # time, since "has the owner looked at this yet" needs its own explicit state,
-    # not something inferrable from the status history alone.
+    # True from the moment an approver rejects this report until the owner
+    # resubmits it (see report_rules.py submit()/decide()). Deliberately does
+    # NOT clear on merely viewing the report - reading the rejection reason is
+    # the first thing an owner does, and clearing it there would wipe the mark
+    # before it's ever seen in the reports list. Drives the per-row "rejected"
+    # mark in the reports list, the nav badge count, and the "rejected" status
+    # filter (a report's real `status` column is never actually "rejected" -
+    # decide() cascades it straight to draft in the same call).
     needs_owner_attention: Mapped[bool] = mapped_column(
         server_default="false", nullable=False, default=False
     )
