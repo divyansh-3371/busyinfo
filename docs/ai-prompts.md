@@ -34,7 +34,7 @@ next, though, which is its own story below.
 ## Choosing the tech stack
 
 ### Prompt
-"what is the tech stack you are using?"
+"what should be the most optimal tech stack for this project?"
 
 ### What I got
 A table explaining the Next.js/Supabase/Vercel choice from the plan above, and
@@ -42,7 +42,7 @@ explicit acknowledgment that it deviated from the brief's own suggested three-se
 split (Supabase + Render + Vercel) in favor of one deploy target.
 
 ### Prompt
-"can i use python as base language?"
+"i have proficiency in python, lets use it as a base language?"
 
 ### What I got
 Claude flagged this as a real architecture fork rather than a small tweak, and
@@ -61,7 +61,7 @@ ten required goals changed, only the implementation language and deploy topology
 It's logged as the one required "later reversed" entry in `docs/decisions.md`.
 
 ### Prompt
-"can i use streamlit for frontend?"
+"is streamlit a better option for frontend?"
 
 ### What I got
 Another explicit fork rather than a silent swap: Claude laid out two real options
@@ -78,7 +78,7 @@ silently omitted, since it was a real option that was seriously discussed.
 ## Building it
 
 ### Prompt
-"so start creating the project according to the plan.md"
+"lets create the project according to the plan.md"
 
 ### What I got
 The entire application, built and committed incrementally against `PLAN.md`'s own
@@ -178,7 +178,7 @@ reset in Supabase and `DATABASE_URL` updated on Render, re-verified live.
 ## Closing out testing, docs, and a pre-submission audit
 
 ### Prompt
-"do pytest edgecase pass first"
+"do pytest edgecase pass first to test all the features of my project so that i can find vunerabilities of it"
 
 ### What I got
 Not a rubber-stamp of the existing checkbox: Claude re-ran the suite, then went
@@ -213,8 +213,7 @@ softened in the report back to me.
 ## Making it look like a finished product
 
 ### Prompt
-"the frontend is working fine, but looks broken make it more visually apealing
-more sophisticated and aesthetic"
+"the frontend is working fine, but looks broken as somethings are still at place where they should not be after some even passing"
 
 ### What I got
 Claude read every page's actual JSX and CSS before touching anything, and found
@@ -237,7 +236,7 @@ rendered (Dashboard, Reports list). It fixed the selector to explicitly exclude
 `.form-error` before pushing, rather than after a review caught it separately.
 
 ### Prompt
-"does the project checks everything on readme.md?"
+"does the project ticks everything on readme.md?"
 
 ### What I got
 A full pass against every requirement in the brief, not just the 10 numbered
@@ -368,7 +367,7 @@ it checked and found fine alongside the things it fixed.
 ## A Supabase security alert, and a dedicated security review
 
 ### Prompt
-"i got mail from supabase that my project has security vuneralibility. fix it"
+"i got mail from supabase that my project has security vuneralibility"
 (with a screenshot of Supabase's "Table publicly accessible" critical alert)
 
 ### What I got
@@ -400,7 +399,7 @@ response latency. Reported first as a structured finding (file, line,
 severity, exploit scenario, fix) before touching any code.
 
 ### Prompt
-"fix it and do the same for rest"
+"fix them"
 
 ### What I got
 The fix - always calling `verify_password` once regardless of whether a user
