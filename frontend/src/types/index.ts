@@ -29,12 +29,24 @@ export interface ExpenseLine {
   other_category_note: string | null
 }
 
+// A frozen line as it was at the moment of an approve/reject decision - not a
+// real, independently addressable ExpenseLine (no `id`), just a copy of what it
+// looked like then. See backend StatusEvent.line_snapshot.
+export interface LineSnapshotItem {
+  date: string
+  category: ExpenseCategory
+  amount_cents: number
+  description: string
+  other_category_note: string | null
+}
+
 export interface StatusEvent {
   id: number
   from_status: ReportStatus | null
   to_status: ReportStatus
   actor: User
   reason: string | null
+  line_snapshot: LineSnapshotItem[] | null
   created_at: string
 }
 

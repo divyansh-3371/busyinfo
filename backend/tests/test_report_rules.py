@@ -107,6 +107,71 @@ def test_reject_returns_report_to_draft_and_logs_both_transitions(db, make_user)
     )
 
 
+def test_reject_snapshots_lines_and_the_snapshot_survives_later_edits(db, make_user):
+    """The whole point of the snapshot: what the approver actually saw at rejection
+    time must stay exactly that, even after the owner edits the line and resubmits."""
+    owner = make_user()
+    approver = make_user(role=Role.approver)
+    report = make_report(db, owner, status=ReportStatus.submitted)
+    line = ExpenseLine(
+        report_id=report.id, date=date(2026, 1, 1), category=ExpenseCategory.travel,
+        amount_cents=1000, description="Cab",
+    )
+    db.add(line)
+    db.flush()
+
+    report_rules.decide(db, report, approver, "rejected", reason="Missing receipt")
+
+    reject_event = next(e for e in report.status_events if e.to_status == ReportStatus.rejected)
+    draft_event = next(e for e in report.status_events if e.to_status == ReportStatus.draft)
+    assert reject_event.line_snapshot == [
+        {
+            "date": "2026-01-01",
+            "category": "travel",
+            "amount_cents": 1000,
+            "description": "Cab",
+            "other_category_note": None,
+        }
+    ]
+    # The mechanical rejected->draft follow-on isn't a new decision - no snapshot.
+    assert draft_event.line_snapshot is None
+
+    # Owner edits the line after the rejection - the frozen snapshot must not move.
+    line.amount_cents = 9999
+    line.description = "Changed after the fact"
+    db.flush()
+    assert reject_event.line_snapshot[0]["amount_cents"] == 1000
+    assert reject_event.line_snapshot[0]["description"] == "Cab"
+
+
+def test_approve_also_snapshots_lines(db, make_user):
+    """Symmetric with rejection, for consistency - even though an approved
+    report's lines can never be edited again anyway."""
+    owner = make_user()
+    approver = make_user(role=Role.approver)
+    report = make_report(db, owner, status=ReportStatus.submitted)
+    db.add(
+        ExpenseLine(
+            report_id=report.id, date=date(2026, 1, 1), category=ExpenseCategory.meals,
+            amount_cents=500, description="Lunch",
+        )
+    )
+    db.flush()
+
+    report_rules.decide(db, report, approver, "approved")
+
+    approve_event = next(e for e in report.status_events if e.to_status == ReportStatus.approved)
+    assert approve_event.line_snapshot == [
+        {
+            "date": "2026-01-01",
+            "category": "meals",
+            "amount_cents": 500,
+            "description": "Lunch",
+            "other_category_note": None,
+        }
+    ]
+
+
 def test_decide_on_non_submitted_report_rejected(db, make_user):
     owner = make_user()
     approver = make_user(role=Role.approver)

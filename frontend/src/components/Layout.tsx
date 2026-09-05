@@ -11,11 +11,18 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [needsAttentionCount, setNeedsAttentionCount] = useState(0)
 
   useEffect(() => {
-    if (user?.role === "approver") {
+    if (user?.role !== "approver") return
+    const refresh = () =>
       listAlerts()
         .then((alerts) => setAlertCount(alerts.length))
         .catch(() => setAlertCount(0))
-    }
+    refresh()
+    // Polled, not fetched once - these badges are the only signal for "something
+    // changed elsewhere" this app has at all (no push notifications exist), so
+    // sitting on one page for a while shouldn't leave them stale until the next
+    // navigation happens to remount this component.
+    const interval = setInterval(refresh, 30_000)
+    return () => clearInterval(interval)
   }, [user])
 
   useEffect(() => {
@@ -23,11 +30,14 @@ export default function Layout({ children }: { children: ReactNode }) {
     // have it rejected, approvers included, since they submit their own
     // expenses too. This app sends no email/push notifications at all, so this
     // badge is the only proactive signal a rejection happened.
-    if (user) {
+    if (!user) return
+    const refresh = () =>
       getNeedsAttentionCount()
         .then(({ count }) => setNeedsAttentionCount(count))
         .catch(() => setNeedsAttentionCount(0))
-    }
+    refresh()
+    const interval = setInterval(refresh, 30_000)
+    return () => clearInterval(interval)
   }, [user])
 
   const initial = user?.name?.trim()?.[0]?.toUpperCase() ?? "?"

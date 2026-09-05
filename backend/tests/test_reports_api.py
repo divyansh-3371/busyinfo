@@ -97,6 +97,68 @@ def test_approver_always_sees_their_own_reports_including_drafts(client, make_us
     assert r.status_code == 200
 
 
+def test_approver_who_decided_keeps_seeing_the_report_after_it_becomes_a_draft(client, make_user):
+    """A rejecting approver's own past decision stays visible to them, even once
+    the report bounces back to Draft - a narrow exception to "drafts are private,"
+    not a rollback of it: a *different*, uninvolved approver still can't see it."""
+    alice = make_user()
+    carol = make_user(role=Role.approver)
+    dave = make_user(role=Role.approver)
+
+    report_id = client.post(
+        "/reports",
+        json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+    client.post(
+        f"/reports/{report_id}/lines",
+        json={"date": "2026-01-01", "category": "travel", "amount_cents": 1000, "description": "Cab"},
+        headers=auth_headers(alice),
+    )
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
+    client.post(
+        f"/reports/{report_id}/decide",
+        json={"decision": "rejected", "reason": "Missing receipt"},
+        headers=auth_headers(carol),
+    )
+
+    # Carol rejected it - she can still see it now that it's back in Draft.
+    r = client.get(f"/reports/{report_id}", headers=auth_headers(carol))
+    assert r.status_code == 200
+    assert r.json()["status"] == "draft"
+
+    # The frozen snapshot of what she actually rejected is right there in her
+    # own timeline entry.
+    reject_event = next(e for e in r.json()["status_events"] if e["to_status"] == "rejected")
+    assert reject_event["line_snapshot"] == [
+        {
+            "date": "2026-01-01", "category": "travel", "amount_cents": 1000,
+            "description": "Cab", "other_category_note": None,
+        }
+    ]
+
+    # Dave never touched this report - still invisible to him while it's a draft.
+    r = client.get(f"/reports/{report_id}", headers=auth_headers(dave))
+    assert r.status_code == 404
+
+    # Alice edits the line and resubmits - carol's frozen snapshot doesn't move,
+    # even though the report's own live lines now show the new amount.
+    line_id = client.get(f"/reports/{report_id}", headers=auth_headers(alice)).json()["lines"][0]["id"]
+    client.patch(
+        f"/reports/{report_id}/lines/{line_id}",
+        json={"date": "2026-01-01", "category": "travel", "amount_cents": 5000, "description": "Cab (fixed)"},
+        headers=auth_headers(alice),
+    )
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
+
+    r = client.get(f"/reports/{report_id}", headers=auth_headers(carol))
+    assert r.status_code == 200
+    assert r.json()["status"] == "submitted"
+    assert r.json()["lines"][0]["amount_cents"] == 5000  # the live, current data
+    reject_event = next(e for e in r.json()["status_events"] if e["to_status"] == "rejected")
+    assert reject_event["line_snapshot"][0]["amount_cents"] == 1000  # still the old, rejected version
+
+
 def test_report_creation_rejects_bad_input(client, make_user):
     alice = make_user()
     # blank title

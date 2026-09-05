@@ -37,6 +37,37 @@ submission. Updated as the build happens, not reconstructed from memory at the e
   no actual power (self-approval is blocked independently regardless of who's
   assigned) - there's no security reason it had to be approver-only. Both can do
   it now, not one instead of the other.
+- **Decision snapshots (added after launch, not one of the original 10 goals)**:
+  when an approver approves or rejects a report, its lines at that exact moment
+  are frozen onto that specific `status_events` row (`line_snapshot`, JSONB) -
+  because a rejected report always returns to Draft, where its lines are
+  mutable again, "what did the approver actually decide on" would otherwise
+  silently drift the moment the owner edits anything and resubmits. Raised
+  directly by the user wanting to see "the version he rejected" stay exactly
+  that, permanently. Paired with a second, narrow visibility exception in
+  `get_visible_report`: an approver who has ever personally decided on a
+  report (approved or rejected) keeps read-only access to it forever
+  afterward, independent of its current status - a specific carve-out from
+  "drafts are private," not a rollback of it (a *different*, uninvolved
+  approver still can't see it while it's a draft). Read-only in practice:
+  `decide()` still independently requires the report to currently be
+  Submitted, so this exception can't be used to re-decide on something. Both
+  decisions are snapshotted, not just rejection, for consistency - an
+  approved report's lines can in fact never be edited again anyway (there's
+  no path back to Draft from Approved), so that half is symmetry rather than
+  a live bug fix.
+- **No live/push updates anywhere in this app** - every page fetches once and
+  only reflects your own actions until you navigate away and back. Raised
+  directly by the user ("why should i refresh to get new status... it should
+  auto refresh"). A real push mechanism (websockets) would be genuine new
+  infrastructure disproportionate to this app; lightweight polling was judged
+  the right-sized fix instead - `ReportDetail` and `ReportsList` silently
+  re-fetch every 10s, and the nav badges (alerts, needs-attention) every 30s,
+  all via the same guarded reload functions already in place, not a
+  loading-state flash each cycle. A poll landing on a report that just became
+  invisible (someone else's decision, not the viewer's own) navigates away
+  gracefully, same treatment as the reject-breaks-the-page fix above, rather
+  than surfacing a jarring error for something that happened elsewhere.
 - **Stale alerts (goal 10) - a deliberate interpretation of an exact-rule item**: the
   brief says "an approver can dismiss the alert for a report assigned to them," which
   could mean alerts are scoped to assignment. Instead: the alert list is global

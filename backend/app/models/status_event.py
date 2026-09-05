@@ -1,8 +1,10 @@
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -38,6 +40,13 @@ class StatusEvent(Base):
     )
     actor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Frozen copy of the report's lines at the moment of this decision (approved or
+    # rejected only - every other transition leaves this null). Lines are mutable
+    # once a report is back in Draft, so without this, "what did the approver
+    # actually reject" would silently change under them the moment the owner edits
+    # anything and resubmits - this is what lets a past decision stay exactly what
+    # it was, permanently, independent of the report's current live state.
+    line_snapshot: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     report = relationship("ExpenseReport", back_populates="status_events")

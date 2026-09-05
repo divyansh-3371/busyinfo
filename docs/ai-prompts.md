@@ -597,3 +597,80 @@ by any of Claude's own testing passes, which is itself worth being honest
 about: live verification after each change catches a lot, but not
 everything, and a real user clicking through it is still how this one
 surfaced.
+
+## Decision snapshots, and why a rejected version should stay rejected
+
+### Prompt
+"why it says rejected draft and also if i reject a report why it disappereard
+from approvers portal" (screenshot of a timeline showing "submitted →
+rejected" then "rejected → draft" as two separate lines)
+
+### What I got
+Two separate answers again, not one merged explanation. The two timeline
+lines were confirmed as intentional - they're two genuinely different facts
+(the decision itself, with its reason; then the automatic, mechanical return
+to Draft), and collapsing them would lose exactly the kind of detail goal 9
+asks the timeline to keep. The disappearing-from-the-portal question was
+identified as the direct, correct consequence of the draft-visibility rule
+from several prompts earlier, applied with no exception - which prompted
+Claude to ask whether that was actually the wanted behavior or whether the
+rejecting approver specifically should be able to keep watching it.
+
+### Prompt
+"the approver should see it as rejected and can see the report which he
+rejected even though it changes in draft mode the approver just see the
+version which he rejected as rejected and then when the owner resubmit it,
+still the rejected one should be there as rejected"
+
+### What I got
+Recognition that this was asking for something more specific than "let the
+approver see the live draft" - a permanent, frozen record of what was
+actually rejected, immune to whatever the owner edits afterward. Claude laid
+out a concrete three-part plan (snapshot the lines at decision time onto
+that status event, a narrow permanent-visibility exception for whoever
+personally decided on a report, and surfacing the frozen snapshot in the
+timeline) and confirmed the shape of it before touching the schema, rather
+than assuming a smaller interpretation and building the wrong thing.
+
+### Prompt
+"do it in the best way possible"
+
+### What I got
+The full three-part plan, plus symmetry Claude added on its own initiative:
+both approvals *and* rejections get snapshotted, not just rejections, even
+though an approved report's lines can never actually be edited again anyway
+(there's no path back to Draft from Approved) - reasoned through and stated
+explicitly as "this half is for consistency, not because it fixes a live
+bug," rather than silently doing more than asked without saying so. A new
+migration (tested upgrade/downgrade against a fresh database, then applied
+to the live database the same way as the earlier ones), a new visibility
+exception in `get_visible_report` scoped as narrowly as the request itself
+(only someone who personally decided on *this* report, not approvers in
+general), and the frozen snapshot rendered in the timeline behind a
+collapsed "view the lines rejected" disclosure rather than always-expanded
+clutter.
+
+### Prompt
+"why should i refresh to get new status or report it should auto refresh
+whenever approver or owner does something" (sent mid-turn, while the
+snapshot feature was still being built)
+
+### What I got
+A correctly-scoped answer to a different question, not folded into the
+snapshot work already in progress: real push updates (websockets) would be
+disproportionate new infrastructure for this app, but polling is cheap and
+directly answers what was actually asked. Added silent background polling
+to `ReportDetail` (10s) and `ReportsList` (10s), plus the nav badges (30s) -
+all reusing the same guarded reload functions already in place, so a poll is
+invisible unless something actually changed. Also connected it correctly to
+the earlier reject-navigation fix: a poll that lands on a report which just
+became invisible (someone *else's* decision this time, not the viewer's own
+action) gets the same graceful "leave for the list" treatment, not a
+jarring error, since the same root cause applies either way.
+
+### What I corrected
+Nothing wrong here - each of these was Claude asking exactly one clarifying
+question at exactly the point real ambiguity existed (what "the version he
+rejected" actually meant), then building precisely that once confirmed,
+including deciding on its own where symmetry was worth adding and saying so
+plainly.

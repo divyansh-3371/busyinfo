@@ -104,6 +104,19 @@ class ReportUpdate(BaseModel):
         return v
 
 
+class LineSnapshotItem(BaseModel):
+    """One frozen line as it was at the moment of an approve/reject decision - see
+    StatusEvent.line_snapshot. Deliberately has no `id`: these aren't real,
+    independently addressable ExpenseLine rows, just a frozen copy of what they
+    looked like at the time."""
+
+    date: date
+    category: ExpenseCategory
+    amount_cents: int
+    description: str
+    other_category_note: str | None = None
+
+
 class StatusEventOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -112,6 +125,7 @@ class StatusEventOut(BaseModel):
     to_status: ReportStatus
     actor: UserOut
     reason: str | None
+    line_snapshot: list[LineSnapshotItem] | None
     created_at: datetime
 
 

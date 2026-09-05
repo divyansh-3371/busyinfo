@@ -65,6 +65,32 @@ export default function ReportDetail() {
 
   useEffect(reload, [reportId])
 
+  useEffect(() => {
+    // Nothing else in this app pushes updates - without this, seeing that an
+    // approver just decided on the report you're looking at means manually
+    // refreshing the page. A silent background poll is a cheap, honest fix for
+    // that; a real push mechanism (websockets) would be real new infrastructure
+    // this app doesn't otherwise need.
+    const interval = setInterval(() => {
+      getReport(reportId)
+        .then(setReport)
+        .catch((err) => {
+          if (err instanceof ApiError && err.status === 404) {
+            // Someone else's action just made this report invisible to us -
+            // most commonly, a different approver rejecting it out from under
+            // us. Leave gracefully instead of showing a stale view or the
+            // jarring "Report not found" error, which is for something that
+            // happened elsewhere, not because anything here is broken.
+            navigate("/reports")
+          }
+          // Any other error during a background refresh is likely transient
+          // (a network blip) - don't disrupt what's already on screen over
+          // it, the next poll just tries again.
+        })
+    }, 10_000)
+    return () => clearInterval(interval)
+  }, [reportId, navigate])
+
   async function runAction<T>(action: () => Promise<T>): Promise<boolean> {
     // Every mutating action on this page goes through here, so guarding re-entrancy
     // once here covers all of them - including forms submitted via Enter, which
@@ -177,6 +203,37 @@ export default function ReportDetail() {
         <span>
           <strong>{e.actor.name}</strong>: {e.from_status ?? "(new)"} &rarr; {e.to_status}
           {e.reason && <em> - "{e.reason}"</em>}
+          {e.line_snapshot && (
+            <details className="snapshot">
+              <summary>
+                View the {e.line_snapshot.length} line{e.line_snapshot.length !== 1 ? "s" : ""}{" "}
+                {e.to_status === "rejected" ? "rejected" : "reviewed"}
+              </summary>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {e.line_snapshot.map((l, i) => (
+                    <tr key={i}>
+                      <td>{l.date}</td>
+                      <td>{l.category === "other" && l.other_category_note ? l.other_category_note : l.category}</td>
+                      <td>{l.description}</td>
+                      <td>{formatCents(l.amount_cents)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="snapshot-total">
+                Total at the time: {formatCents(e.line_snapshot.reduce((sum, l) => sum + l.amount_cents, 0))}
+              </p>
+            </details>
+          )}
         </span>
       ),
     })),

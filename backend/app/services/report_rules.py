@@ -40,6 +40,21 @@ def recalculate_total(report: ExpenseReport, db: Session) -> None:
     report.total_cents = sum(amount for (amount,) in total)
 
 
+def _snapshot_lines(report: ExpenseReport) -> list[dict]:
+    """A frozen copy of this report's lines right now, for attaching to a decision
+    event - see StatusEvent.line_snapshot for why this needs to exist at all."""
+    return [
+        {
+            "date": line.date.isoformat(),
+            "category": line.category.value,
+            "amount_cents": line.amount_cents,
+            "description": line.description,
+            "other_category_note": line.other_category_note,
+        }
+        for line in report.lines
+    ]
+
+
 def _log_event(
     db: Session,
     report: ExpenseReport,
@@ -48,6 +63,7 @@ def _log_event(
     to_status: ReportStatus,
     actor: User,
     reason: str | None = None,
+    line_snapshot: list[dict] | None = None,
 ) -> None:
     db.add(
         StatusEvent(
@@ -56,6 +72,7 @@ def _log_event(
             to_status=to_status,
             actor_id=actor.id,
             reason=reason,
+            line_snapshot=line_snapshot,
         )
     )
     # Every route happens to commit before reading report.status_events back, so
@@ -95,15 +112,24 @@ def decide(
             raise DomainError("Rejecting a report requires a reason.")
         _log_event(
             db, report, from_status=report.status, to_status=ReportStatus.rejected,
-            actor=actor, reason=reason,
+            actor=actor, reason=reason, line_snapshot=_snapshot_lines(report),
         )
         # Automatic follow-on, same action: a rejected report always returns to Draft
-        # immediately so its owner can edit and resubmit.
+        # immediately so its owner can edit and resubmit. No snapshot needed here -
+        # this transition doesn't represent a new decision, just the mechanical
+        # consequence of the one already snapshotted above.
         _log_event(db, report, from_status=ReportStatus.rejected, to_status=ReportStatus.draft, actor=actor)
         report.status = ReportStatus.draft
     else:
+        # Snapshotted for consistency with rejection, even though an approved
+        # report's lines can never be edited again anyway (report_rules never lets
+        # it back to Draft) - so the current lines already stay permanently
+        # accurate for this case regardless. Keeping both decisions symmetric here
+        # means a future reader never has to wonder why only one of them freezes
+        # what was actually reviewed.
         _log_event(
-            db, report, from_status=report.status, to_status=ReportStatus.approved, actor=actor
+            db, report, from_status=report.status, to_status=ReportStatus.approved,
+            actor=actor, line_snapshot=_snapshot_lines(report),
         )
         report.status = ReportStatus.approved
 

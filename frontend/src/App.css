@@ -503,6 +503,42 @@ textarea:focus {
   margin-bottom: 2px;
 }
 
+.snapshot {
+  margin-top: var(--space-2);
+}
+
+.snapshot summary {
+  cursor: pointer;
+  color: var(--color-primary);
+  font-weight: 600;
+  font-size: 0.82rem;
+  list-style: none;
+}
+
+.snapshot summary::-webkit-details-marker {
+  display: none;
+}
+
+.snapshot summary::before {
+  content: "▸ ";
+}
+
+.snapshot[open] summary::before {
+  content: "▾ ";
+}
+
+.snapshot .data-table {
+  margin-top: var(--space-2);
+  font-size: 0.82rem;
+}
+
+.snapshot-total {
+  margin-top: var(--space-2);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
 .filter-bar {
   display: flex;
   flex-wrap: wrap;

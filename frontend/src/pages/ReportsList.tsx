@@ -70,6 +70,16 @@ export default function ReportsList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, status, includeArchived, assignedToMe, sort, sortDir, page])
 
+  useEffect(() => {
+    // Same reasoning as ReportDetail's poll: someone else deciding on a report
+    // shouldn't require a manual refresh to see reflected in this list. Calls
+    // the same guarded reload() (not setData(null) first), so this is a silent
+    // background update, not a loading-state flash every 10 seconds.
+    const interval = setInterval(reload, 10_000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, status, includeArchived, assignedToMe, sort, sortDir, page])
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1
   const selectableIds = data ? data.items.filter((r) => r.status === "submitted").map((r) => r.id) : []
 
