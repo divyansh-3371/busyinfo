@@ -16,8 +16,9 @@ import {
   restoreReport,
   setApprovers,
   submitReport,
+  updateLine,
 } from "../api/reports"
-import type { ExpenseCategory, ReportDetail as ReportDetailType, User } from "../types"
+import type { ExpenseCategory, ExpenseLine, ReportDetail as ReportDetailType, User } from "../types"
 import { EXPENSE_CATEGORIES, formatCents } from "../types"
 
 export default function ReportDetail() {
@@ -35,6 +36,10 @@ export default function ReportDetail() {
   const [lineAmount, setLineAmount] = useState("")
   const [lineDescription, setLineDescription] = useState("")
   const [lineOtherNote, setLineOtherNote] = useState("")
+  // Non-null while the form below is editing an existing line rather than adding
+  // a new one - same form serves both, per the existing "Add line" UI, rather
+  // than duplicating a second form just for edits.
+  const [editingLineId, setEditingLineId] = useState<number | null>(null)
 
   const [allApprovers, setAllApprovers] = useState<User[] | null>(null)
   const [selectedApproverIds, setSelectedApproverIds] = useState<number[]>([])
@@ -77,25 +82,44 @@ export default function ReportDetail() {
     }
   }
 
-  async function handleAddLine(e: FormEvent) {
+  function startEditingLine(line: ExpenseLine) {
+    setEditingLineId(line.id)
+    setLineDate(line.date)
+    setLineCategory(line.category)
+    setLineAmount((line.amount_cents / 100).toFixed(2))
+    setLineDescription(line.description)
+    setLineOtherNote(line.other_category_note ?? "")
+  }
+
+  function cancelEditingLine() {
+    setEditingLineId(null)
+    setLineDate("")
+    setLineAmount("")
+    setLineDescription("")
+    setLineOtherNote("")
+  }
+
+  async function handleSubmitLine(e: FormEvent) {
     e.preventDefault()
     const cents = Math.round(parseFloat(lineAmount) * 100)
+    const payload = {
+      date: lineDate,
+      category: lineCategory,
+      amount_cents: cents,
+      description: lineDescription,
+      // Only sent when the field is actually shown (category === "other") and
+      // filled in - an empty string here would otherwise overwrite nothing into
+      // something on the backend, which treats blank the same as omitted anyway,
+      // but there's no reason to send it at all for a category where it's unused.
+      other_category_note: lineCategory === "other" && lineOtherNote ? lineOtherNote : undefined,
+    }
     const ok = await runAction(() =>
-      addLine(reportId, {
-        date: lineDate,
-        category: lineCategory,
-        amount_cents: cents,
-        description: lineDescription,
-        // Only sent when the field is actually shown (category === "other") and
-        // filled in - an empty string here would otherwise overwrite nothing into
-        // something on the backend, which treats blank the same as omitted anyway,
-        // but there's no reason to send it at all for a category where it's unused.
-        other_category_note: lineCategory === "other" && lineOtherNote ? lineOtherNote : undefined,
-      }),
+      editingLineId ? updateLine(reportId, editingLineId, payload) : addLine(reportId, payload),
     )
     // Only clear the form on success - a rejected line (bad amount, date, etc.)
     // should leave what was typed in place so it isn't silently lost.
     if (ok) {
+      setEditingLineId(null)
       setLineDate("")
       setLineAmount("")
       setLineDescription("")
@@ -228,11 +252,19 @@ export default function ReportDetail() {
                 <td>{line.description}</td>
                 <td>{formatCents(line.amount_cents)}</td>
                 {canEditLines && (
-                  <td>
+                  <td className="action-bar">
+                    <button className="btn-ghost btn-sm" disabled={busy} onClick={() => startEditingLine(line)}>
+                      Edit
+                    </button>
                     <button
                       className="btn-danger btn-sm"
                       disabled={busy}
-                      onClick={() => runAction(() => deleteLine(reportId, line.id))}
+                      onClick={async () => {
+                        const ok = await runAction(() => deleteLine(reportId, line.id))
+                        // The line being edited no longer exists - don't leave the
+                        // form sitting there pointed at a now-deleted line.
+                        if (ok && editingLineId === line.id) cancelEditingLine()
+                      }}
                     >
                       Remove
                     </button>
@@ -249,7 +281,7 @@ export default function ReportDetail() {
         </table>
 
         {canEditLines && (
-          <form onSubmit={handleAddLine} className="inline-form">
+          <form onSubmit={handleSubmitLine} className="inline-form">
             <input type="date" value={lineDate} onChange={(e) => setLineDate(e.target.value)} required />
             <select
               value={lineCategory}
@@ -290,8 +322,13 @@ export default function ReportDetail() {
               required
             />
             <button type="submit" className="btn-primary" disabled={busy}>
-              Add line
+              {editingLineId ? "Save changes" : "Add line"}
             </button>
+            {editingLineId && (
+              <button type="button" className="btn-ghost" disabled={busy} onClick={cancelEditingLine}>
+                Cancel
+              </button>
+            )}
           </form>
         )}
       </section>
