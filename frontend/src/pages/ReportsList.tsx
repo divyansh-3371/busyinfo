@@ -132,11 +132,20 @@ export default function ReportsList() {
           }}
         >
           <option value="">All statuses</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
+          {STATUSES
+            // An approver filtering by "draft" can only ever see their own drafts
+            // (another employee's draft isn't visible to them at all - see
+            // get_visible_report), which makes the option look broken rather than
+            // just narrow: "where did all the drafts go" instead of the truth,
+            // "you're only allowed to see your own." Employees keep it - for them
+            // it means exactly what it looks like it means, since their whole list
+            // is already just their own reports.
+            .filter((s) => s !== "draft" || user?.role !== "approver")
+            .map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
         </select>
         <select
           value={sort}
