@@ -4,6 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_visible_report, require_approver
@@ -55,6 +56,14 @@ def list_reports(
 
     if user.role != Role.approver:
         query = query.filter(ExpenseReport.owner_id == user.id)
+    else:
+        # Approvers see everything submitted-or-later, plus their own reports
+        # regardless of status - a Draft is another employee's private, unfinished
+        # work and isn't visible to anyone else until they submit it (matches the
+        # same rule in get_visible_report).
+        query = query.filter(
+            or_(ExpenseReport.owner_id == user.id, ExpenseReport.status != ReportStatus.draft)
+        )
 
     if not include_archived:
         query = query.filter(ExpenseReport.archived_at.is_(None))

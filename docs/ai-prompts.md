@@ -439,3 +439,65 @@ full suite before committing. Also explicitly checked for other places
 user-controlled text leaves React's automatic escaping into some other
 consuming format (an email, a PDF, another export) - there are none; this
 CSV is the only place in the whole app where that happens.
+
+## Two product questions, from actually using the app
+
+### Prompt
+"whenever i create new report there is no option assign approver and whenevr
+i choose other in reason (there should be option to write reason which is
+titally optional)" (with a screenshot of a report's "Assigned approvers"
+section showing no picker)
+
+### What I got
+Two different answers, not one blanket fix. The missing assign-approver
+picker on your own report turned out to be intentional, existing design -
+`docs/decisions.md` already documents assignment as an approver-only
+queue-management action, not something a report's owner does themselves -
+so Claude explained that and asked whether to change it rather than silently
+"fixing" a deliberate choice. The "other" question needed a clarifying
+question first (the phrase "reason" didn't match anything literally in the
+app), which turned out to mean the expense-line category dropdown - when
+"Other" is picked, wanting an optional field to say what it actually is.
+That one was a genuine, reasonable gap: added `other_category_note` as a
+real nullable column (migration 0004), tested upgrade/downgrade against a
+fresh database, applied to the live Supabase database the same way as the
+RLS fix, wired into the frontend so the field only appears for "Other" and
+clears itself if you switch away.
+
+### Prompt
+"approver shouldnt see draft report untill it submitted, is it fine?"
+
+### What I got
+Confirmation this was a real gap, not a false alarm - checked the actual
+code (`get_visible_report`) and found an existing test that locked in the
+wrong behavior on purpose: an approver could already see another employee's
+never-submitted Draft, in both the report-list and by direct id, contradicting
+the brief's own wording ("reports submitted by other employees"). Unlike the
+assign-approver question above, there was no documented rationale anywhere
+defending this - it was a real bug, not a design choice - so Claude
+recommended fixing it plainly rather than treating it as equally-valid
+either way.
+
+### Prompt
+"yes"
+
+### What I got
+The fix in both places that needed it (`get_visible_report` and
+`list_reports`), which - because both routes and the comment/assignment
+routes all share that one dependency - correctly closed the gap everywhere
+at once without touching each route individually. Five existing tests had
+been quietly relying on the old behavior (an approver commenting on or
+assigning themselves to another employee's still-unsubmitted draft) and
+needed their setup fixed to submit the report first; their actual
+assertions didn't need to change, just the precondition. Also made an
+explicit, stated judgment call rather than silently expanding scope: left
+the dashboard's aggregate counts showing all statuses company-wide,
+including drafts, since a number doesn't expose a draft's content the way
+opening the report itself would - flagged this to double-check rather than
+just doing it.
+
+### What I corrected
+Nothing in either exchange - one was Claude correctly declining to change a
+documented design decision without asking, the other was Claude confirming
+a real gap the person using the app had already correctly spotted, then
+fixing it precisely at its source.

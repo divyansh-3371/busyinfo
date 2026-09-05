@@ -204,6 +204,32 @@ exactly the kind of thing this file exists to track.
   future column being added without re-deriving this same analysis. Covered
   by a regression test asserting the exported cell for a formula-shaped
   title comes back apostrophe-prefixed.
+- **Approvers could see another employee's Draft report** - the visibility
+  check (`get_visible_report`) treated any approver as able to see any
+  report regardless of status, and `list_reports` never restricted approvers
+  by status either. The brief's own wording is "approvers can view and
+  decide on reports **submitted** by other employees" - a Draft is the
+  owner's private, unfinished work, and hadn't been submitted yet. Raised by
+  the user directly ("approver shouldnt see draft report untill it submitted,
+  is it fine?") rather than found by an audit - a good instinct, and a real
+  gap, not a false alarm: there was no documented rationale anywhere
+  defending "approvers see drafts too," unlike the genuinely deliberate
+  interpretation calls (stale alerts, assignment-as-filter) elsewhere in this
+  file. Fixed in both `get_visible_report` and `list_reports`: an approver
+  now sees a report if it's their own (any status) or someone else's and no
+  longer Draft. This cascades correctly through every route that shares
+  `get_visible_report` (comments, line edits, assignment, decide/pay) without
+  needing separate changes to each - exactly why that check was centralized
+  in the first place. Dashboard aggregate counts (goal 8) were deliberately
+  left showing company-wide numbers across all statuses, drafts included -
+  a count doesn't expose a draft's content, so the same restriction didn't
+  seem warranted there; flagged to the user as a judgment call, not applied
+  without asking. Five existing tests had been quietly relying on the old,
+  wrong behavior (an approver assigning themselves to, or commenting on,
+  another employee's still-unsubmitted draft) and needed their setup updated
+  to submit the report first - the tests' actual assertions (filter logic,
+  comment ordering, idempotent assignment) were still correct, only the
+  precondition was wrong.
 
 Checked and specifically ruled out, not left unexamined: a password over
 bcrypt's 72-byte limit already returns a clean 401 (the existing

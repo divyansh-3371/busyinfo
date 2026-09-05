@@ -140,7 +140,8 @@ def test_owner_and_approver_filters(client, make_user):
     carol = make_user(role=Role.approver)
 
     alice_report = create_report(client, alice, "Alice's report")
-    create_report(client, bob, "Bob's report")
+    client.post(f"/reports/{alice_report}/submit", headers=auth_headers(alice))
+    create_report(client, bob, "Bob's report")  # left as a draft - shouldn't show up either way
 
     r = client.get(f"/reports?owner_id={alice.id}", headers=auth_headers(carol))
     ids = [item["id"] for item in r.json()["items"]]
@@ -163,6 +164,7 @@ def test_assigned_to_me_filter(client, make_user):
     dave = make_user(role=Role.approver)
 
     report_id = create_report(client, alice, "Needs review")
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
     client.put(
         f"/reports/{report_id}/approvers",
         json={"approver_ids": [dave.id]},
@@ -181,6 +183,7 @@ def test_set_approvers_rejects_non_approver_ids(client, make_user):
     bob_employee = make_user()
     carol = make_user(role=Role.approver)
     report_id = create_report(client, alice, "Trip")
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
 
     r = client.put(
         f"/reports/{report_id}/approvers",
@@ -216,6 +219,7 @@ def test_duplicate_approver_id_is_idempotent(client, make_user):
     alice = make_user()
     carol = make_user(role=Role.approver)
     report_id = create_report(client, alice, "Trip")
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
 
     r = client.put(
         f"/reports/{report_id}/approvers",

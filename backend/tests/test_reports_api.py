@@ -53,20 +53,46 @@ def test_create_and_list_report_scoped_to_owner(client, make_user):
     assert r.status_code == 404
 
 
-def test_approver_sees_everyone_reports(client, make_user):
+def test_approver_sees_submitted_reports_but_not_drafts(client, make_user):
+    """Regression test: an approver used to see every report regardless of
+    status, including another employee's still-being-edited Draft - a Draft is
+    the owner's private, unfinished work, and the brief's own wording ("reports
+    submitted by other employees") never included seeing it before that."""
     alice = make_user()
     carol = make_user(role=Role.approver)
 
-    r = client.post(
+    report_id = client.post(
         "/reports",
         json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
         headers=auth_headers(alice),
-    )
-    report_id = r.json()["id"]
+    ).json()["id"]
+
+    # Still a Draft - invisible to another approver, in both the list and by id.
+    r = client.get("/reports", headers=auth_headers(carol))
+    assert all(item["id"] != report_id for item in r.json()["items"])
+    r = client.get(f"/reports/{report_id}", headers=auth_headers(carol))
+    assert r.status_code == 404
+
+    # Once submitted, both become visible.
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
+    r = client.get("/reports", headers=auth_headers(carol))
+    assert any(item["id"] == report_id for item in r.json()["items"])
+    r = client.get(f"/reports/{report_id}", headers=auth_headers(carol))
+    assert r.status_code == 200
+
+
+def test_approver_always_sees_their_own_reports_including_drafts(client, make_user):
+    """An approver is also an employee for their own reports - the "no drafts
+    visible to others" rule must never apply to a report you own yourself."""
+    carol = make_user(role=Role.approver)
+    report_id = client.post(
+        "/reports",
+        json={"title": "My own draft", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(carol),
+    ).json()["id"]
 
     r = client.get("/reports", headers=auth_headers(carol))
     assert any(item["id"] == report_id for item in r.json()["items"])
-
     r = client.get(f"/reports/{report_id}", headers=auth_headers(carol))
     assert r.status_code == 200
 

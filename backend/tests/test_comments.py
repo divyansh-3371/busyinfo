@@ -30,6 +30,10 @@ def test_owner_and_approver_can_comment(client, make_user):
         json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
         headers=auth_headers(alice),
     ).json()["id"]
+    # Submitted first - a Draft isn't visible to another approver at all (see
+    # test_approver_sees_submitted_reports_but_not_drafts), so there'd be nothing
+    # for carol to comment on yet.
+    client.post(f"/reports/{report_id}/submit", headers=auth_headers(alice))
 
     r = client.post(
         f"/reports/{report_id}/comments", json={"body": "Please review"}, headers=auth_headers(alice)
