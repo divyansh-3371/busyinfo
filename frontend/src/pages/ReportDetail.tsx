@@ -244,9 +244,13 @@ export default function ReportDetail() {
               <tr key={line.id}>
                 <td>{line.date}</td>
                 <td>
-                  {line.category}
-                  {line.category === "other" && line.other_category_note && (
-                    <span className="badge">{line.other_category_note}</span>
+                  {line.category === "other" && line.other_category_note ? (
+                    // Show what they actually specified instead of the generic
+                    // "other" - the hover title keeps the real category visible
+                    // without cluttering the cell with both.
+                    <span title="Category: Other">{line.other_category_note}</span>
+                  ) : (
+                    line.category
                   )}
                 </td>
                 <td>{line.description}</td>
