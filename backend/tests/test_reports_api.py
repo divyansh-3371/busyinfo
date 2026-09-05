@@ -115,6 +115,57 @@ def test_add_line_and_total_recomputed(client, make_user):
     assert len(detail["lines"]) == 2
 
 
+def test_line_other_category_note_is_optional(client, make_user):
+    """The fixed category list can't name everything; other_category_note lets a
+    line elaborate when category="other" without being required - unlike
+    description, which is required on every line regardless of category."""
+    alice = make_user()
+    report_id = client.post(
+        "/reports",
+        json={"title": "Trip", "start_date": "2026-01-01", "end_date": "2026-01-02"},
+        headers=auth_headers(alice),
+    ).json()["id"]
+
+    # Omitted entirely - still works, comes back null, not required.
+    r = client.post(
+        f"/reports/{report_id}/lines",
+        json={"date": "2026-01-01", "category": "other", "amount_cents": 500, "description": "Misc"},
+        headers=auth_headers(alice),
+    )
+    assert r.status_code == 201
+    assert r.json()["other_category_note"] is None
+
+    # Provided - comes back as given.
+    r = client.post(
+        f"/reports/{report_id}/lines",
+        json={
+            "date": "2026-01-01",
+            "category": "other",
+            "amount_cents": 750,
+            "description": "Misc",
+            "other_category_note": "Parking permit",
+        },
+        headers=auth_headers(alice),
+    )
+    assert r.status_code == 201
+    assert r.json()["other_category_note"] == "Parking permit"
+
+    # Whitespace-only counts as "didn't fill it in", not an empty string saved.
+    r = client.post(
+        f"/reports/{report_id}/lines",
+        json={
+            "date": "2026-01-01",
+            "category": "other",
+            "amount_cents": 250,
+            "description": "Misc",
+            "other_category_note": "   ",
+        },
+        headers=auth_headers(alice),
+    )
+    assert r.status_code == 201
+    assert r.json()["other_category_note"] is None
+
+
 def test_line_rejects_non_positive_amount(client, make_user):
     alice = make_user()
     report_id = client.post(

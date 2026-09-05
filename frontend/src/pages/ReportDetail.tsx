@@ -34,6 +34,7 @@ export default function ReportDetail() {
   const [lineCategory, setLineCategory] = useState<ExpenseCategory>("travel")
   const [lineAmount, setLineAmount] = useState("")
   const [lineDescription, setLineDescription] = useState("")
+  const [lineOtherNote, setLineOtherNote] = useState("")
 
   const [allApprovers, setAllApprovers] = useState<User[] | null>(null)
   const [selectedApproverIds, setSelectedApproverIds] = useState<number[]>([])
@@ -85,6 +86,11 @@ export default function ReportDetail() {
         category: lineCategory,
         amount_cents: cents,
         description: lineDescription,
+        // Only sent when the field is actually shown (category === "other") and
+        // filled in - an empty string here would otherwise overwrite nothing into
+        // something on the backend, which treats blank the same as omitted anyway,
+        // but there's no reason to send it at all for a category where it's unused.
+        other_category_note: lineCategory === "other" && lineOtherNote ? lineOtherNote : undefined,
       }),
     )
     // Only clear the form on success - a rejected line (bad amount, date, etc.)
@@ -93,6 +99,7 @@ export default function ReportDetail() {
       setLineDate("")
       setLineAmount("")
       setLineDescription("")
+      setLineOtherNote("")
     }
   }
 
@@ -212,7 +219,12 @@ export default function ReportDetail() {
             {report.lines.map((line) => (
               <tr key={line.id}>
                 <td>{line.date}</td>
-                <td>{line.category}</td>
+                <td>
+                  {line.category}
+                  {line.category === "other" && line.other_category_note && (
+                    <span className="badge">{line.other_category_note}</span>
+                  )}
+                </td>
                 <td>{line.description}</td>
                 <td>{formatCents(line.amount_cents)}</td>
                 {canEditLines && (
@@ -239,7 +251,16 @@ export default function ReportDetail() {
         {canEditLines && (
           <form onSubmit={handleAddLine} className="inline-form">
             <input type="date" value={lineDate} onChange={(e) => setLineDate(e.target.value)} required />
-            <select value={lineCategory} onChange={(e) => setLineCategory(e.target.value as ExpenseCategory)}>
+            <select
+              value={lineCategory}
+              onChange={(e) => {
+                const next = e.target.value as ExpenseCategory
+                setLineCategory(next)
+                // No reason to keep a hidden, stale note around once the field
+                // that shows it is gone.
+                if (next !== "other") setLineOtherNote("")
+              }}
+            >
               {EXPENSE_CATEGORIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -252,6 +273,13 @@ export default function ReportDetail() {
               onChange={(e) => setLineDescription(e.target.value)}
               required
             />
+            {lineCategory === "other" && (
+              <input
+                placeholder="Specify (optional)"
+                value={lineOtherNote}
+                onChange={(e) => setLineOtherNote(e.target.value)}
+              />
+            )}
             <input
               type="number"
               step="0.01"

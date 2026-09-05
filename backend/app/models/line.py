@@ -27,6 +27,11 @@ class ExpenseLine(Base):
         nullable=False,
     )
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    # Optional elaboration shown only when category is "other" - the fixed six
+    # categories can't cover everything, and forcing a real answer into the
+    # already-required `description` field conflated "what happened" with "what
+    # kind of expense is this." Nullable and never required, unlike description.
+    other_category_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
 
     report = relationship("ExpenseReport", back_populates="lines")

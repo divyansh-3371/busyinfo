@@ -26,6 +26,7 @@ export interface ExpenseLine {
   category: ExpenseCategory
   amount_cents: number
   description: string
+  other_category_note: string | null
 }
 
 export interface StatusEvent {

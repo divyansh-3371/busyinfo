@@ -64,6 +64,7 @@ export interface LineInput {
   category: ExpenseCategory
   amount_cents: number
   description: string
+  other_category_note?: string
 }
 
 export function addLine(reportId: number, data: LineInput): Promise<ExpenseLine> {

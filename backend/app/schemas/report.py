@@ -15,6 +15,11 @@ class ExpenseLineIn(BaseModel):
     category: ExpenseCategory
     amount_cents: int
     description: str
+    # Optional elaboration, meant for when category="other" but not restricted to
+    # it at this layer - the frontend only shows the field for "Other", but there's
+    # no reason to reject it if a client sends one alongside a different category.
+    # Unlike description, blank/missing is fine - never validated as required.
+    other_category_note: str | None = None
 
     @field_validator("amount_cents")
     @classmethod
@@ -35,6 +40,18 @@ class ExpenseLineIn(BaseModel):
             raise ValueError(f"Description cannot exceed {MAX_DESCRIPTION_LENGTH} characters.")
         return v
 
+    @field_validator("other_category_note")
+    @classmethod
+    def other_category_note_optional(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            return None  # whitespace-only counts as "didn't fill it in", not an empty note
+        if len(v) > MAX_DESCRIPTION_LENGTH:
+            raise ValueError(f"Note cannot exceed {MAX_DESCRIPTION_LENGTH} characters.")
+        return v
+
 
 class ExpenseLineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -44,6 +61,7 @@ class ExpenseLineOut(BaseModel):
     category: ExpenseCategory
     amount_cents: int
     description: str
+    other_category_note: str | None
 
 
 class ReportCreate(BaseModel):
