@@ -73,7 +73,22 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
                   <XAxis dataKey="week_start" tick={{ fill: "var(--color-text-muted)", fontSize: 12 }} />
                   <YAxis tick={{ fill: "var(--color-text-muted)", fontSize: 12 }} />
-                  <Tooltip formatter={(value) => `$${Number(value).toFixed(2)}`} />
+                  <Tooltip
+                    formatter={(value) => `$${Number(value).toFixed(2)}`}
+                    // Recharts' Tooltip ships with a hardcoded white background and
+                    // light-gray label text by default - fine on a light page, badly
+                    // low-contrast on this app's dark theme. These use the same CSS
+                    // tokens as the rest of the page, so the tooltip actually follows
+                    // light/dark mode instead of looking stuck in light mode always.
+                    contentStyle={{
+                      background: "var(--color-surface)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 10,
+                      boxShadow: "var(--shadow-md)",
+                    }}
+                    labelStyle={{ color: "var(--color-text)", fontWeight: 600, marginBottom: 4 }}
+                    itemStyle={{ color: "var(--color-primary)" }}
+                  />
                   <Bar dataKey="dollars" fill="#3452e0" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
