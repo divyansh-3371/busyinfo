@@ -70,7 +70,7 @@ def get_alerts_for_approver(
 
 def dismiss(db: Session, report: ExpenseReport, approver: User, *, now: datetime | None = None) -> None:
     """Upsert: dismissing again (e.g. after the alert reappeared) resets the snooze
-    rather than erroring or accumulating rows - see NOTES.md."""
+    rather than erroring or accumulating rows."""
     now = now or now_utc()
     snoozed_until = now + timedelta(days=settings.stale_alert_snooze_days)
     existing = (

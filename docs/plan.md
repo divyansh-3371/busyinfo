@@ -58,10 +58,10 @@ without needing to cut anything — the biggest time sink relative to what was
 expected was the local dev environment itself, not the application code: a native
 Postgres service already listening on port 5432 on the build machine silently
 intercepted the first several migration attempts (wrong-looking password-auth errors
-that were actually a port collision, not a real credentials bug — see `NOTES.md`),
-and Docker's registry pulls were unreliable enough on this network that pulling the
-Postgres image took several retries before succeeding. Neither of those was visible
-in the plan going in; both are now documented so they wouldn't cost time twice.
+that were actually a port collision, not a real credentials bug), and Docker's
+registry pulls were unreliable enough on this network that pulling the Postgres
+image took several retries before succeeding. Neither of those was visible in the
+plan going in.
 
 ## What was cut when time was short
 

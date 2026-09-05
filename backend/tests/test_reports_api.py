@@ -668,7 +668,7 @@ def test_update_line_recomputes_total(client, make_user):
 
 
 def test_zero_line_report_can_be_submitted(client, make_user):
-    """Documented assumption (NOTES.md): a report with no lines can still be
+    """Documented assumption: a report with no lines can still be
     submitted, with a total of 0 - not silently blocked."""
     alice = make_user()
     report_id = client.post(

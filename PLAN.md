@@ -4,8 +4,6 @@ Execution plan for Assignment 11. Built and deployed over a 2-day window. Checkb
 updated in place as work happens — this file is the running source of truth for progress,
 not a static spec.
 
-Companion running log: `NOTES.md` (assumptions, known limitations, things to double-check).
-
 ---
 
 ## 1. Architecture overview
@@ -77,7 +75,7 @@ Companion running log: `NOTES.md` (assumptions, known limitations, things to dou
   vite.config.ts
 
 /docs                # the 5 required docs
-PLAN.md  NOTES.md  SUBMISSION.md  README.md
+PLAN.md  SUBMISSION.md  README.md
 ```
 
 **Data model** (detail in `docs/schema.md` once built):
@@ -108,14 +106,14 @@ role == approver → `report_rules.decide()` checks `report.status == submitted`
       before deployment actually needs the hosted DB — local Postgres is enough to build
       and test against.
 - [x] Commit: schema + migration
-- [x] `core/security.py`: password hashing (bcrypt directly, not passlib - see NOTES.md),
+- [x] `core/security.py`: password hashing (bcrypt directly, not passlib),
       JWT issue/verify; `api/deps.py`: `get_current_user`/`require_approver`
 - [x] `POST /auth/login` + `GET /auth/me` (backend) + Login page + `AuthContext`
       (frontend) storing the JWT and attaching it to every request
 - [x] Commit: auth working end-to-end against a manually-inserted test user — verified
       via TestClient and over real HTTP (uvicorn + Vite dev servers, live CORS
       preflight). Not yet clicked through in an actual browser (no browser tooling
-      available this session) — flagged in NOTES.md as a manual check still owed.
+      available this session) — noted as a manual check still owed.
 - [x] `seed.py`: 4 users (2 employee, 2 approver), 16 reports covering every scenario
       goals 1-10 need to demo (draft, not-yet-stale/stale/reappeared-after-dismiss
       submitted, approved-unpaid, rejected-back-to-draft, approver-owns-a-report,
@@ -145,7 +143,7 @@ role == approver → `report_rules.decide()` checks `report.status == submitted`
       clicked through in a real browser (same caveat as the auth milestone).
 
 **Day 1 complete.** All of it verified except an actual browser click-through (no
-browser tool available this session — see NOTES.md). 28 backend tests passing.
+browser tool available this session). 28 backend tests passing.
 
 ### Day 2 morning — the harder required goals
 - [x] `ReportApprover` assignment endpoint/UI + "assigned to me" queue filter — any
@@ -164,8 +162,8 @@ browser tool available this session — see NOTES.md). 28 backend tests passing.
 - [x] `POST /reports/bulk-decide`: per-report check, structured result distinguishing
       "rejected — you own this report" from other outcomes (a dedicated `self_owned`
       boolean, not string-matching); bulk-select UI + result summary. A single shared
-      `reason` applies to every rejection in one batch call — noted as a simplifying
-      assumption in NOTES.md.
+      `reason` applies to every rejection in one batch call — a deliberate
+      simplifying assumption.
 - [x] `GET /reports/export-due` CSV export of approved-but-unpaid reports — registered
       before the dynamic `/{report_id}` route (same reason `/approvers` is), header-only
       CSV for the zero-rows case, downloaded from the frontend via a fetched blob since
@@ -183,8 +181,8 @@ browser tool available this session — see NOTES.md). 28 backend tests passing.
       check). 50 tests total.
 - [x] `services/stale_alerts.py`: days-in-Submitted calculation, dismiss endpoint writing
       `AlertDismissal` with `snoozed_until`, alert list excludes non-expired dismissals,
-      nav badge count. Interpretation choice documented in the module and NOTES.md:
-      the alert list is global (every stale Submitted report), dismissal is personal
+      nav badge count. Interpretation choice documented in the module and in
+      `docs/decisions.md` (Decision 6): the alert list is global (every stale Submitted report), dismissal is personal
       per-approver state, and any approver may dismiss any stale report — not
       restricted to reports assigned to them, for the same "assignment is a
       convenience, not a gate" reason used everywhere else.
@@ -234,14 +232,14 @@ tested. Frontend: alerts page + nav badge count for approvers.
 - [x] Commit: tests
 - [x] Fill `docs/architecture.md`, `docs/schema.md`, `docs/plan.md`, `docs/decisions.md`
       (6 decisions, 1 reversed), `docs/ai-prompts.md` — written from the actual
-      commit history, NOTES.md, and this conversation's real prompt sequence, not
+      commit history and this conversation's real prompt sequence, not
       reconstructed from memory afterward
 - [x] Commit: docs
 - [x] Deploy: Supabase prod DB → run Alembic migrations → seed prod DB → Render env vars
       (`DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGINS`, `STALE_ALERT_DAYS`,
       `STALE_ALERT_SNOOZE_DAYS`) → Render deploy → Vercel env var (`VITE_API_BASE_URL`) →
-      Vercel deploy — hit two real deploy bugs along the way, both fixed and documented
-      in NOTES.md: (1) Supabase's direct DB host resolves IPv6-only and Render's
+      Vercel deploy — hit two real deploy bugs along the way, both fixed:
+      (1) Supabase's direct DB host resolves IPv6-only and Render's
       outbound networking can't reach it (`Network is unreachable`) - fixed by
       switching `DATABASE_URL` to Supabase's connection-pooler host (Supavisor,
       port 6543, IPv4-reachable); (2) Vercel 404'd on every client-side route
@@ -256,7 +254,7 @@ tested. Frontend: alerts page + nav badge count for approvers.
       personal pass before final submission.
 - [ ] Commit: final docs + submission
 - [x] Pre-submission audit (Step 4 below) — found and fixed one real issue: a live
-      Supabase DB password was committed in NOTES.md as a fake-looking "example".
+      Supabase DB password had been committed in a doc as a fake-looking "example".
       Redacted, and the credential itself has since been rotated in Supabase and
       `DATABASE_URL` updated on Render - re-verified live (`/health`, `/auth/login`)
       afterward. The old value stays visible in old commits, but it's dead now.
@@ -350,7 +348,8 @@ tested. Frontend: alerts page + nav badge count for approvers.
 - Report becomes non-Submitted (approved/rejected) → immediately drops out of the alert
   list even if it was flagged before, regardless of any prior dismissal.
 - **Decided**: any approver may dismiss any stale report's alert, not restricted to
-  reports assigned to them — see `services/stale_alerts.py` and `NOTES.md` for why.
+  reports assigned to them — see `services/stale_alerts.py` and `docs/decisions.md`
+  (Decision 6) for why.
 - Dismissed alert reappears once `snoozed_until` has passed and the report is still
   Submitted — verified with a unit test using an injected fixed "now," not wall-clock timing.
 - Dismissing an already-dismissed, still-snoozed alert → idempotent no-op or extends the
@@ -373,10 +372,11 @@ tested. Frontend: alerts page + nav badge count for approvers.
   — not just HTML form constraints in React.
 - SQLAlchemy's parameterized queries throughout; no raw SQL string interpolation.
 - `.env*` never committed (already gitignored); `SUBMISSION.md`/README never contain real secrets.
-- Passwords hashed with bcrypt (called directly, not via passlib — see NOTES.md), never logged.
+- Passwords hashed with bcrypt (called directly, not via passlib — `docs/decisions.md`
+  Decision 4), never logged.
 - JWT stored in the frontend in memory/localStorage (see the auth trade-off above) — no
-  rate limiting on login given free-tier/demo scope, noted as a known limitation in
-  `NOTES.md`, not silently ignored.
+  rate limiting on login given free-tier/demo scope, a known limitation called out in
+  `SUBMISSION.md`, not silently ignored.
 
 ---
 
@@ -396,7 +396,7 @@ and most likely to come up in the follow-up call:
 - Authz dependency: each guard rejects the roles/ownership combinations it should.
 
 **Frontend**: no automated test suite given the 2-day budget — manual verification only,
-noted as a deliberate scope cut in `NOTES.md`.
+a deliberate scope cut (see `SUBMISSION.md`).
 
 **Manual verification** (scripted checklist run locally, then again against the deployed app):
 - Log in as each seeded role; confirm each sees only their own reports as an employee.
@@ -425,7 +425,7 @@ noted as a deliberate scope cut in `NOTES.md`.
       — clean `tsc` + Vite build; output asset hashes matched what's actually live on
       Vercel byte-for-byte, confirming Vercel built from the same source.
 - [x] No secrets in git history (spot-check `.env` was never committed) — `.env` itself
-      was never committed (clean), **but found a real secret elsewhere**: NOTES.md's
+      was never committed (clean), **but found a real secret elsewhere**: a doc's
       "password containing `@`" example used the actual real Supabase DB password, not
       a placeholder, committed in `ebf154d` and live on the public repo since before
       this audit. Redacted to a fake example password and pushed. The credential

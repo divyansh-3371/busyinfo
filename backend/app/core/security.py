@@ -26,7 +26,7 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
 # A real bcrypt hash of a password nobody has, computed once at import time. Used
 # by the login route when no matching user is found, so a login attempt spends
 # exactly one bcrypt comparison either way - closes the "unknown email vs. wrong
-# password" timing side-channel documented in NOTES.md. Without this, an
+# password" timing side-channel. Without this, an
 # unknown-email login returns almost instantly (a DB miss, no hashing at all)
 # while a real-email-wrong-password login takes the full ~100-300ms bcrypt cost -
 # an easily measurable difference an attacker can use to enumerate which emails

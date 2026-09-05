@@ -89,4 +89,4 @@
   behaves everywhere else in this system — a queue-filtering convenience, never an
   access gate (goal 5's "assigned to me" is a filter on the same full queue every
   approver already sees, not a restriction on who may act). Documented in
-  `services/stale_alerts.py` and `NOTES.md` in case a reviewer reads it the other way.
+  `services/stale_alerts.py` in case a reviewer reads it the other way.

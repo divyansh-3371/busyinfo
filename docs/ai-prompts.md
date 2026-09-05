@@ -83,8 +83,7 @@ silently omitted, since it was a real option that was seriously discussed.
 ### What I got
 The entire application, built and committed incrementally against `PLAN.md`'s own
 checklist — one git commit per task or small group of related tasks, the checklist
-itself checked off in place as each one landed, `NOTES.md` kept running alongside it
-for assumptions and known limitations. This one instruction covered the whole
+itself checked off in place as each one landed. This one instruction covered the whole
 two-day build: schema and migration (verified against a real local Postgres, not
 just written and assumed correct), auth, the lifecycle/business-rule engine and its
 unit tests, CRUD routes, the frontend pages, then the four harder goals (assignment,
@@ -111,8 +110,7 @@ build, each fixed before moving on rather than left for later:
    Windows Postgres service already listening on the default port, silently
    intercepting the connection. Diagnosed by testing authentication *from inside the
    target container itself* before assuming the application code was wrong, then
-   fixed by moving the dev container to a different local port. Logged in `NOTES.md`
-   so it wouldn't cost time twice.
+   fixed by moving the dev container to a different local port.
 4. **A docstring that went stale mid-task.** The first migration's docstring said it
    hadn't been verified against a live Postgres — true at the moment it was
    *written*, but no longer true by the time the same commit's testing actually
@@ -143,8 +141,8 @@ getting it live, debugging two real production bugs neither of us had hit before
 "where i left my project?"
 
 ### What I got
-A status read of `PLAN.md`/`NOTES.md`/git log: all 10 goals implemented and
-committed, deploy and final submission steps still unchecked.
+A status read of `PLAN.md`/git log: all 10 goals implemented and committed,
+deploy and final submission steps still unchecked.
 
 ### Prompt
 "2" (picking "deploy" from a numbered list of what to do next)
@@ -203,13 +201,14 @@ compared byte-for-byte against what Vercel was actually serving), and a real
 checking that `.env` itself was never committed.
 
 ### What that audit caught
-The scan found a real, serious problem: `NOTES.md`'s "password containing `@`"
-example used my actual real Supabase database password, not a placeholder,
-committed several commits back and live on the public GitHub repo the whole time.
-Claude redacted it immediately, explained clearly that redacting the file doesn't
-invalidate history that's already public, and flagged the password rotation as
-urgent rather than routine cleanup. This is exactly the kind of thing an audit is
-supposed to catch and didn't get softened in the report back to me.
+The scan found a real, serious problem: a doc's "password containing `@`" example
+(illustrating why the Alembic percent-encoding bug mattered) used my actual real
+Supabase database password, not a placeholder, committed several commits back and
+live on the public GitHub repo the whole time. Claude redacted it immediately,
+explained clearly that redacting the file doesn't invalidate history that's already
+public, and flagged the password rotation as urgent rather than routine cleanup.
+This is exactly the kind of thing an audit is supposed to catch and didn't get
+softened in the report back to me.
 
 ## Making it look like a finished product
 
@@ -258,9 +257,9 @@ if i enter wrong credentials it stuck in a loop fix this"
 ### What I got
 Two different answers for two different things, not a blanket "fixed both." The
 missing signup was correctly identified as intentional, not a bug - the brief's
-goal 1 only ever says "people sign in," and it's already `NOTES.md`'s first
-documented assumption - so Claude explained that instead of silently building a
-registration flow that wasn't asked for. The wrong-credentials issue turned out to
+goal 1 only ever says "people sign in" - so Claude explained that instead of
+silently building a registration flow that wasn't asked for. The wrong-credentials
+issue turned out to
 be a real bug: `apiFetch` treated *every* `401` response as a session expiring,
 including the login endpoint's own "wrong password" rejection - clearing a token
 that was never set, and showing "Session expired - please log in again" instead
@@ -515,10 +514,9 @@ letting the owner route their own report to whoever should review it is
 reasonable on its own merits. Claude asked one scoping question (owner-only,
 replacing approvers' ability, vs. both) rather than guessing, then implemented
 "both": the report's own owner can now manage assignments alongside any
-approver, `/reports/approvers` opened to any authenticated user (just names,
-nothing sensitive) so an owner can populate the picker, and `docs`/`NOTES.md`
-updated to record the revision rather than silently overwriting the original
-decision.
+approver, and `/reports/approvers` opened to any authenticated user (just names,
+nothing sensitive) so an owner can populate the picker. Recorded here as a
+revision of an earlier answer rather than silently overwriting it.
 
 Two existing tests had encoded the old, narrower rule and needed updating -
 one directly (an owner setting their own approvers now succeeds instead of

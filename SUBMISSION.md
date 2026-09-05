@@ -64,9 +64,8 @@ Roughly 16-20 hours total, spread across 3-4 days at about 4-5 hours a day rathe
 than one long sitting. That pacing mattered more than the total: building the core
 CRUD and lifecycle rules came first, but a real chunk of the time went into actually
 using the deployed app afterward - logging in as an employee in one tab and an
-approver in another and clicking through real flows - which is how most of the bugs
-listed in `NOTES.md` under "Real bugs found and fixed after the initial build" were
-actually found, not by re-reading the code.
+approver in another and clicking through real flows - which is how most of the real
+bugs fixed after the initial build were actually found, not by re-reading the code.
 
 ## What would you do next, with another 12 hours?
 
