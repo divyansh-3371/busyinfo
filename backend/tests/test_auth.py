@@ -147,15 +147,17 @@ def test_token_for_deleted_user_401(client, make_user, db):
 def test_role_change_takes_effect_without_a_new_token(client, make_user, db):
     """The JWT only ever encodes a user id, never a role claim - so a role change in
     the DB must take effect on the very next request, without needing to log in
-    again for a fresh token."""
+    again for a fresh token. Uses /reports/export-due as the approver-only probe -
+    /reports/approvers no longer qualifies now that a report's owner can also see
+    it, to populate the assignment picker on their own report."""
     user = make_user(role=Role.employee)
     token = create_access_token(subject=user.id)
 
-    r = client.get("/reports/approvers", headers={"Authorization": f"Bearer {token}"})
+    r = client.get("/reports/export-due", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 403  # not an approver yet
 
     user.role = Role.approver
     db.flush()
 
-    r = client.get("/reports/approvers", headers={"Authorization": f"Bearer {token}"})
+    r = client.get("/reports/export-due", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200  # same token, now works - role was re-read, not cached

@@ -46,10 +46,11 @@ export default function ReportDetail() {
   const [commentBody, setCommentBody] = useState("")
 
   useEffect(() => {
-    if (user?.role === "approver") {
-      listApprovers().then(setAllApprovers).catch(() => setAllApprovers(null))
-    }
-  }, [user])
+    // Fetched for everyone now, not just approvers - a report's owner can also
+    // manage its assignments (routing your own report to whoever should review
+    // it), on top of any approver's existing ability to.
+    listApprovers().then(setAllApprovers).catch(() => setAllApprovers(null))
+  }, [])
 
   useEffect(() => {
     if (report) setSelectedApproverIds(report.approvers.map((a) => a.id))
@@ -192,7 +193,7 @@ export default function ReportDetail() {
 
       <section>
         <h2>Assigned approvers</h2>
-        {isApprover && allApprovers ? (
+        {(isApprover || isOwner) && allApprovers ? (
           <>
             <div className="approver-picker">
               {allApprovers.map((a) => (

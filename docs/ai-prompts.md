@@ -501,3 +501,57 @@ Nothing in either exchange - one was Claude correctly declining to change a
 documented design decision without asking, the other was Claude confirming
 a real gap the person using the app had already correctly spotted, then
 fixing it precisely at its source.
+
+## Revisiting the assignment question, and a UI cleanup that followed from it
+
+### Prompt
+"so shouldnt it be decided by owner rather than approver?"
+
+### What I got
+A real reconsideration, not a repeat of the earlier answer. Since assignment
+grants no actual power (self-approval is blocked independently, regardless of
+who's assigned), there's no security argument for keeping it approver-only -
+letting the owner route their own report to whoever should review it is
+reasonable on its own merits. Claude asked one scoping question (owner-only,
+replacing approvers' ability, vs. both) rather than guessing, then implemented
+"both": the report's own owner can now manage assignments alongside any
+approver, `/reports/approvers` opened to any authenticated user (just names,
+nothing sensitive) so an owner can populate the picker, and `docs`/`NOTES.md`
+updated to record the revision rather than silently overwriting the original
+decision.
+
+Two existing tests had encoded the old, narrower rule and needed updating -
+one directly (an owner setting their own approvers now succeeds instead of
+403), and one indirectly: `test_role_change_takes_effect_without_a_new_token`
+had used `/reports/approvers` purely as a convenient stand-in "some
+approver-only endpoint" to prove a role change takes effect without a new
+login - once that endpoint stopped being approver-only, the test's actual
+point (JWTs don't cache roles) needed a different probe
+(`/reports/export-due`, which still is approver-only), not weakening the
+thing being tested.
+
+### Prompt
+"why draft option is there in approver's portal if he cant see draft
+reports" (screenshot of the status filter dropdown)
+
+### What I got
+Confirmation this was a real, if smaller, inconsistency left over from the
+draft-visibility fix: an approver selecting "draft" from the status filter
+can only ever see their *own* drafts (everyone else's are invisible to them
+per that fix), which makes the filter look broken rather than just narrow.
+Fixed by hiding that one option from the dropdown specifically for
+approvers - employees keep it, since for them it means exactly what it
+looks like.
+
+### Prompt
+"and what is the meaning of assigned approvers?"
+
+### What I got
+A plain-language explanation of the concept itself - assignment as a
+filtering convenience, not an access gate - which is what led directly into
+the next prompt above questioning who should control it.
+
+### What I corrected
+Nothing in this whole thread - each prompt built on the last (what does this
+mean, why does that look wrong, why is control the way it is) and Claude's
+answers held up under each successive question rather than needing revision.

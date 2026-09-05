@@ -193,15 +193,43 @@ def test_set_approvers_rejects_non_approver_ids(client, make_user):
     assert r.status_code == 400
 
 
-def test_set_approvers_requires_approver_role(client, make_user):
+def test_owner_can_set_own_approvers(client, make_user):
+    """The report's own owner can manage its assignments too, even without the
+    approver role - routing your own report to whoever should review it is
+    reasonable, and it grants no actual power: decide()/mark_paid() re-check
+    ownership independently regardless of who's assigned, so this can't be used
+    as a self-approval backdoor."""
     alice = make_user()
+    carol = make_user(role=Role.approver)
+    report_id = create_report(client, alice, "Trip")
+
+    r = client.put(
+        f"/reports/{report_id}/approvers",
+        json={"approver_ids": [carol.id]},
+        headers=auth_headers(alice),
+    )
+    assert r.status_code == 200
+    assert [a["id"] for a in r.json()["approvers"]] == [carol.id]
+
+
+def test_set_approvers_requires_approver_role_or_ownership(client, make_user):
+    """A plain employee who neither owns the report nor holds the approver role
+    still can't touch its assignments - in practice this is 404, not 403, since
+    get_visible_report already blocks an outsider from seeing the report at all
+    (an employee has never been able to see another employee's reports in any
+    status). The explicit role-or-owner check inside set_approvers itself is
+    consequently unreachable via this route today - kept anyway as the actual,
+    self-documenting authorization rule rather than relying on a reader to infer
+    it from get_visible_report's separate visibility logic."""
+    alice = make_user()
+    bob = make_user()
     report_id = create_report(client, alice, "Trip")
     r = client.put(
         f"/reports/{report_id}/approvers",
         json={"approver_ids": []},
-        headers=auth_headers(alice),
+        headers=auth_headers(bob),
     )
-    assert r.status_code == 403
+    assert r.status_code == 404
 
 
 def test_list_approvers_endpoint(client, make_user):

@@ -31,6 +31,12 @@ submission. Updated as the build happens, not reconstructed from memory at the e
 - **Approver assignment isn't owner-restricted**: any approver can assign/unassign
   approvers on any report they can see (not just the report's owner), since it's a
   queue-management action among approvers, not something tied to report ownership.
+  **Revised later**: the report's own owner can manage assignments too now, even
+  without the approver role - raised directly by the user ("shouldnt it be decided
+  by owner rather than approver?"), and a reasonable one, since assignment grants
+  no actual power (self-approval is blocked independently regardless of who's
+  assigned) - there's no security reason it had to be approver-only. Both can do
+  it now, not one instead of the other.
 - **Stale alerts (goal 10) - a deliberate interpretation of an exact-rule item**: the
   brief says "an approver can dismiss the alert for a report assigned to them," which
   could mean alerts are scoped to assignment. Instead: the alert list is global

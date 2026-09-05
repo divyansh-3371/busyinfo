@@ -99,8 +99,11 @@ def list_reports(
 
 
 @router.get("/approvers", response_model=list[UserOut])
-def list_approvers(db: Session = Depends(get_db), _: User = Depends(require_approver)) -> list[User]:
-    """All users with the approver role - used to populate the assignment picker."""
+def list_approvers(db: Session = Depends(get_db), _: User = Depends(get_current_user)) -> list[User]:
+    """All users with the approver role - used to populate the assignment picker.
+    Open to any authenticated user (not just approvers) now that a report's owner
+    can also manage its assignments - just names/emails of who the approvers are,
+    nothing sensitive."""
     return db.query(User).filter(User.role == Role.approver).order_by(User.name).all()
 
 
@@ -243,12 +246,22 @@ def set_approvers(
     payload: AssignApproversRequest,
     report: ExpenseReport = Depends(get_visible_report),
     db: Session = Depends(get_db),
-    _: User = Depends(require_approver),
+    user: User = Depends(get_current_user),
 ) -> ReportDetail:
     """Replaces the full set of assigned approvers. Any approver may manage
-    assignments on any report they can see - assignment is a queue-filtering
-    convenience, not an access gate (see docs/decisions.md), so this isn't restricted
-    to the report's owner."""
+    assignments on any report they can see (assignment is a queue-filtering
+    convenience, not an access gate - see docs/decisions.md), and so can the
+    report's own owner, even if they're not an approver themselves - being able to
+    route your own report to whoever should be reviewing it is a reasonable thing
+    to want, and it can't be misused as a backdoor around self-approval: assignment
+    grants no actual power, decide()/mark_paid() re-check ownership independently
+    regardless of who's assigned. A plain employee who neither owns the report nor
+    holds the approver role still can't touch this."""
+    if user.role != Role.approver and user.id != report.owner_id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only an approver or the report's own owner can manage its assignments.",
+        )
     unique_ids = set(payload.approver_ids)
     if unique_ids:
         found = (
