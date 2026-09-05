@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import type { FormEvent } from "react"
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import Layout from "../components/Layout"
 import { useAuth } from "../context/AuthContext"
 import { ApiError } from "../api/client"
@@ -25,6 +25,7 @@ export default function ReportDetail() {
   const { id } = useParams<{ id: string }>()
   const reportId = Number(id)
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const [report, setReport] = useState<ReportDetailType | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +74,21 @@ export default function ReportDetail() {
     setBusy(true)
     try {
       await action()
-      reload()
+      try {
+        setReport(await getReport(reportId))
+      } catch (reloadErr) {
+        if (reloadErr instanceof ApiError && reloadErr.status === 404) {
+          // The action itself succeeded - this 404 means it's no longer visible
+          // to *us* as a direct, correct result of it (an approver rejecting a
+          // report sends it back to Draft, which is invisible to any approver
+          // who isn't its owner). That's not a failure to report as a scary
+          // error - it's the expected outcome, so just leave for the list
+          // instead of showing "Report not found" for something that worked.
+          navigate("/reports")
+          return true
+        }
+        throw reloadErr
+      }
       return true
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Something went wrong.")
