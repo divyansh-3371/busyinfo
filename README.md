@@ -99,6 +99,10 @@ fact, by anyone.
 
 ## Screenshots
 
+**Login**
+
+![Login](docs/screenshots/login.png)
+
 **Dashboard** — headline numbers, status/category breakdown, paid-per-week chart
 
 ![Dashboard](docs/screenshots/dashboard.png)
