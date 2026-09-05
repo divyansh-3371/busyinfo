@@ -60,27 +60,56 @@ Mark each honestly. Partial is fine — say what is partial.
 
 ## How much time did you actually spend?
 
-<Fill in - this is the one field only you can answer honestly.>
+Roughly 16-20 hours total, spread across 3-4 days at about 4-5 hours a day rather
+than one long sitting. That pacing mattered more than the total: building the core
+CRUD and lifecycle rules came first, but a real chunk of the time went into actually
+using the deployed app afterward - logging in as an employee in one tab and an
+approver in another and clicking through real flows - which is how most of the bugs
+listed in `NOTES.md` under "Real bugs found and fixed after the initial build" were
+actually found, not by re-reading the code.
 
 ## What would you do next, with another 12 hours?
 
-<Draft below based on what's actually in NOTES.md/PLAN.md as deliberate cuts - edit
-this to reflect your own priorities before submitting:>
+If this were headed toward real company use rather than a demo, in priority order:
 
-- A real automated frontend test suite (Playwright or similar) - QA so far has been
-  backend `pytest` (97 tests) plus manual/curl-based verification of the deployed API;
-  the frontend has no automated coverage at all.
-- Rate limiting on `/auth/login`.
-- Revisit the JWT-in-response-body-over-httpOnly-cookie trade-off if this ever needed
-  to be more than a demo - it's XSS-exposed by design, documented in
-  `docs/decisions.md`, and was chosen only to dodge cross-site cookie complexity under
-  a 2-day budget.
+- **Notifications that leave the app.** Right now "you were rejected" only shows up
+  as an in-app badge that the owner has to be logged in to see. A real reimbursement
+  workflow needs an email (or Slack) the moment a decision is made - nobody should
+  have to poll a web app to find out their expense got rejected.
+- **A real automated frontend test suite** (Playwright or similar). QA so far is
+  backend `pytest` (97 tests, covering every lifecycle rule and authz guard) plus
+  manual/curl-based verification of the deployed API; the frontend has zero
+  automated coverage, which is the single biggest risk in this codebase as it grows.
+- **Multi-level approval for large amounts.** One flat approver tier is fine for a
+  small team, but a company would want a report over some threshold to need a
+  second sign-off - it's in the brief's own stretch list and is the most obviously
+  "real" missing piece.
+- **Move off JWT-in-response-body to an httpOnly cookie**, and add rate limiting on
+  `/auth/login`. Both are documented trade-offs I made deliberately to fit the time
+  budget (see `docs/decisions.md`), not oversights, but neither is something I'd
+  ship to production as-is.
+- **Audit export.** The append-only `status_events`/`comments` tables already make
+  every decision traceable; the missing piece is just a "give finance a CSV of every
+  decision in a date range" endpoint, which is a small addition on top of data
+  that's already there.
 
 ## What are you least happy with in this codebase, and why?
 
-<Draft below - edit to reflect your own view before submitting:>
+No automated frontend tests, for the reason above - the backend has solid coverage,
+but a regression in the React app would only be caught by clicking through it by
+hand, which doesn't scale.
 
-No automated frontend tests is the biggest gap - the backend has solid coverage
-(lifecycle transitions, self-approval blocks, bulk per-report results, stale-alert
-window math, CSV export, authz guards), but a regression in the React app would only
-be caught by clicking through it by hand.
+Separately, the hardest part of this project for me personally wasn't any single
+feature - it was catching bugs that only exist in the gap between "the code does
+what I described" and "a real person using it experiences what I intended." The
+`needs_owner_attention` mark is the clearest example: my first version cleared the
+flag the instant the owner opened the report, which sounds right on paper, but in
+practice that's the same click as "read why I got rejected" - so the mark vanished
+before anyone could ever actually see it highlighted in their list. That only
+surfaced because I tested it live as a real user would, not from reading the diff.
+Coordinating three separate free-tier services (Supabase, Render, Vercel) had a
+similar flavor - each one's own quirks (Supabase's direct DB host being
+IPv6-only and unreachable from Render, Render's inconsistent deploy times making
+"did my fix actually go live yet" a recurring question) meant a lot of the real
+debugging time went into verifying my own assumptions against the live system
+rather than trusting that a green test suite meant the deployed app was correct.
